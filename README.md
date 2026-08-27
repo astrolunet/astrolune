@@ -6,17 +6,52 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![C23](https://img.shields.io/badge/C-23-00599C.svg)](https://en.cppreference.com/w/c/23)
 
-Astrolune is a deterministic blockchain implementation in C23 with a small
-contract VM, the Trocto contract compiler, append-only node storage, TCP gossip,
-PoTB validator finality and a JSON-RPC interface for controlled networks.
+**A blockchain written from scratch in C23 — no Rust, no Go, no external
+consensus framework.** Deterministic core, BFT finality, its own contract
+language, and a test suite that actually tries to break it (ASan/UBSan, fuzz,
+multi-validator process tests).
 
-The complete blockchain documentation is available at
-[landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs).
+```rust
+// examples/counter.tc — a first Trocto contract
+contract Counter {
+    state {
+        count: u64,
+        updates: u64,
+    }
 
-> **Controlled-network release.** The validator path uses configured PoTB
-> committees, signed proposals, PREVOTE/PRECOMMIT quorum and durable finality.
-> The default cryptographic backend remains explicitly gated; use the sodium
-> build for Ed25519 and keep validator RPC/P2P binds restricted to your network.
+    pub fn inc(by: u64) -> u64 {
+        self.count += by;
+        self.updates += 1;
+        emit CountChanged(self.count);
+        return self.count;
+    }
+
+    pub fn get() -> u64 {
+        return self.count;
+    }
+}
+```
+
+```powershell
+trocto examples/counter.tc -o counter.bin
+```
+
+Full docs: [landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs)
+
+> **Controlled-network release.** This is not a public mainnet. The validator
+> path uses configured PoTB committees, signed proposals, PREVOTE/PRECOMMIT
+> quorum and durable finality — built for consortiums and closed networks, not
+> permissionless deployment. The default cryptographic backend is explicitly
+> gated for development; use the sodium build for Ed25519 in anything real.
+> See [AUDIT.md](AUDIT.md) for the exact readiness boundary.
+
+## Why C23, no dependencies
+
+Every other blockchain of this shape reaches for Rust or Go and a stack of
+external crates for crypto, networking and serialization. Astrolune doesn't.
+The consensus core, state machine, VM, storage engine and gossip layer are
+plain C23 with a public C ABI (`include/astrolune/`) — small surface area,
+easy to audit, easy to embed, no toolchain lock-in.
 
 ## Highlights
 
@@ -37,7 +72,7 @@ cmake --build --preset dev
 ctest --preset dev --output-on-failure
 ```
 
-The strict CI configuration can be built with `scripts\\build.bat ci test` on
+The strict CI configuration can be built with `scripts\build.bat ci test` on
 Windows. Sanitiser and fuzz presets are available in `CMakePresets.json`.
 
 The repository also includes two process-level consensus checks:
@@ -55,9 +90,9 @@ quorum boundary: three validators finalize while two do not.
 Create a genesis file with the CLI, then run a single producer on loopback:
 
 ```powershell
-.\\build\\dev\\bin\\alnode.exe init-genesis .\\genesis.bin
-.\\build\\dev\\bin\\alnode.exe run .\\genesis.bin `
-  --datadir .\\node-a `
+.\build\dev\bin\alnode.exe init-genesis .\genesis.bin
+.\build\dev\bin\alnode.exe run .\genesis.bin `
+  --datadir .\node-a `
   --p2p 127.0.0.1:44001 `
   --rpc 127.0.0.1:44002 `
   --interval 1000 `
@@ -75,8 +110,12 @@ bind.
 - `include/astrolune/`: public C ABI and deterministic core types
 - `src/`: VM, state, transactions, blocks, node, storage, networking and RPC
 - `tools/`: Trocto/Regol contract compiler
+- `examples/`: sample Trocto contracts (counter, token, math)
 - `tests/` and `fuzz/`: unit, integration and decoder coverage
 - `AUDIT.md`: current limitations and readiness boundary
 
-See `CONTRIBUTING.md` for the development workflow and `SECURITY.md` for
-responsible vulnerability reporting.
+## Contributing
+
+Look for issues labeled `good first issue`. See `CONTRIBUTING.md` for the
+development workflow and `SECURITY.md` for responsible vulnerability
+reporting.
