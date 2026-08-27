@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to package and publish
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -28,6 +37,8 @@ jobs:
       CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
@@ -36,8 +47,8 @@ jobs:
         shell: pwsh
         run: |
           $expected = "v$((Get-Content VERSION).Trim())"
-          if ($env:GITHUB_REF_NAME -ne $expected) {
-            throw "Tag $env:GITHUB_REF_NAME does not match VERSION ($expected)"
+          if ($env:RELEASE_TAG -ne $expected) {
+            throw "Tag $env:RELEASE_TAG does not match VERSION ($expected)"
           }
 
       - name: Install libsodium (Linux)
@@ -102,6 +113,8 @@ jobs:
   publish:
     needs: package
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -109,9 +122,43 @@ jobs:
           path: release
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            release/astrolune-*.zip
-            release/astrolune-*.sha256
+      - name: Create release draft
+        shell: bash
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --draft
+          fi
+
+      - name: Upload release assets
+        shell: bash
+        run: |
+          shopt -s nullglob
+          assets=(release/astrolune-*.zip release/astrolune-*.sha256)
+          if (( ${#assets[@]} != 4 )); then
+            printf 'Expected 4 release assets, found %d\n' "${#assets[@]}" >&2
+            exit 1
+          fi
+
+          for asset in "${assets[@]}"; do
+            for attempt in 1 2 3; do
+              if gh release upload "$RELEASE_TAG" "$asset" \
+                --repo "$GITHUB_REPOSITORY" \
+                --clobber; then
+                break
+              fi
+
+              if (( attempt == 3 )); then
+                printf 'Failed to upload %s after %d attempts\n' "$asset" "$attempt" >&2
+                exit 1
+              fi
+
+              sleep $((attempt * 10))
+            done
+          done
+
+      - name: Publish release
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
