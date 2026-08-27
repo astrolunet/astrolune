@@ -1,0 +1,74 @@
+// Token - an ERC-20-style fungible token in Trocto v0.2.
+//
+// Compile:
+//     trocto examples/token.tc -o token.bin
+//     trocto examples/token.tc --emit-regol
+//
+// Deploy via a DEPLOY transaction with the compiled container.
+// The constructor (init) receives the initial supply and mints to deployer.
+
+contract Token {
+    state {
+        total_supply: u64,
+        balances: map<address,u64>,
+        allowances: map<address,u64>,
+    }
+
+    // Constructor: called once at deployment. Mints entire supply to deployer.
+    init(initial_supply: u64) {
+        self.total_supply = initial_supply;
+        balances[sender()] = initial_supply;
+        emit Transfer(0, initial_supply);
+    }
+
+    // Returns the total token supply.
+    pub fn total_supply() -> u64 {
+        return self.total_supply;
+    }
+
+    // Returns the balance of the given address.
+    pub fn balance_of(owner: address) -> u64 {
+        return balances[owner];
+    }
+
+    // Transfer `amount` tokens from the caller to `to`.
+    pub fn transfer(to: address, amount: u64) -> u64 {
+        let sender_balance = balances[sender()];
+        require(sender_balance >= amount, 2);
+        require(amount > 0, 4);
+        balances[sender()] = sender_balance - amount;
+        balances[to] += amount;
+        emit Transfer(amount, 1);
+        return 1;
+    }
+
+    // Approve `spender` to spend `amount` on behalf of the caller.
+    pub fn approve(spender: address, amount: u64) -> u64 {
+        allowances[sender()] = amount;
+        emit Approval(amount, 1);
+        return 1;
+    }
+
+    // Transfer `amount` tokens from `from` to `to` using allowance.
+    pub fn transfer_from(from: address, to: address, amount: u64) -> u64 {
+        let allowed = allowances[from];
+        require(allowed >= amount, 3);
+        let from_balance = balances[from];
+        require(from_balance >= amount, 2);
+        allowances[from] = allowed - amount;
+        balances[from] = from_balance - amount;
+        balances[to] += amount;
+        emit Transfer(amount, 1);
+        return 1;
+    }
+
+    // Burn tokens from the caller's balance.
+    pub fn burn(amount: u64) -> u64 {
+        let sender_balance = balances[sender()];
+        require(sender_balance >= amount, 2);
+        balances[sender()] = sender_balance - amount;
+        self.total_supply -= amount;
+        emit Transfer(amount, 0);
+        return 1;
+    }
+}

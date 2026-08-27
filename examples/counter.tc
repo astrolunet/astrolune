@@ -1,0 +1,36 @@
+// Counter - a first Trocto contract.
+//
+// Compile and inspect the lowered Regol IR:
+//
+//     trocto counter.tc --emit-regol
+//     trocto counter.tc -o counter.bin
+//
+// Deploy by wrapping counter.bin into a v1 DEPLOY transaction; call its
+// public functions through a CALL transaction selecting the entrypoint
+// index (0 = default, 1 = inc, 2 = get, 3 = reset) with an 8-byte
+// little-endian u64 argument where the signature has one.
+
+contract Counter {
+    state {
+        count: u64,
+        updates: u64,
+    }
+
+    // Adds `by` to the stored counter and returns the new value.
+    pub fn inc(by: u64) -> u64 {
+        self.count += by;
+        self.updates += 1;
+        emit CountChanged(self.count);
+        return self.count;
+    }
+
+    pub fn get() -> u64 {
+        return self.count;
+    }
+
+    pub fn reset_if_owner(proof: u64) -> u64 {
+        require(proof == 7777, 42);
+        self.count = 0;
+        return 0;
+    }
+}

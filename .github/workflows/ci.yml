@@ -1,0 +1,111 @@
+name: core
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  strict:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            id: gcc
+            cc: gcc
+            cxx: g++
+          - os: ubuntu-latest
+            id: clang
+            cc: clang
+            cxx: clang++
+          - os: windows-latest
+            id: msvc
+            cc: cl
+            cxx: cl
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+      - run: cmake --workflow --preset ci
+      - name: Produce determinism digest
+        run: ./build/ci/bin/determinism_fixture > determinism-${{ matrix.id }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: determinism-${{ matrix.id }}
+          path: determinism-${{ matrix.id }}.txt
+      - name: Two-node network smoke (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1 -Preset ci
+      - name: Four-validator quorum smoke (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -ExecutionPolicy Bypass -File scripts/consensus-smoke.ps1 -Preset ci
+
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      ASAN_OPTIONS: allocator_may_return_null=1
+      CC: ${{ startsWith(matrix.os, 'ubuntu') && 'clang' || 'cl' }}
+      CXX: ${{ startsWith(matrix.os, 'ubuntu') && 'clang++' || 'cl' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+      - run: cmake --workflow --preset asan
+
+  sodium:
+    name: libsodium Ed25519 backend
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libsodium
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+      - run: cmake --preset dev -DASTROLUNE_CRYPTO_BACKEND=sodium
+      - run: cmake --build --preset dev
+      - run: ctest --preset dev --output-on-failure
+
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: allocator_may_return_null=1
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+      - run: cmake --preset fuzz
+      - run: cmake --build --preset fuzz
+      - run: ./build/fuzz/bin/fuzz_tx -runs=100 fuzz/corpus/tx
+      - run: ./build/fuzz/bin/fuzz_alvm -runs=100 fuzz/corpus/alvm
+      - run: ./build/fuzz/bin/fuzz_block_genesis -runs=100 fuzz/corpus/block_genesis
+      - run: ./build/fuzz/bin/fuzz_smt_proof -runs=100 fuzz/corpus/smt_proof
+
+  determinism:
+    needs: strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: determinism-*
+          merge-multiple: true
+      - name: Compare toolchain digests
+        run: |
+          test "$(find . -name 'determinism-*.txt' | wc -l)" -eq 3
+          test "$(cat determinism-*.txt | sort -u | wc -l)" -eq 1
+          cat determinism-*.txt | sort -u

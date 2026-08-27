@@ -1,0 +1,34 @@
+# CMake and compiler output
+/build/
+cmake-build-*/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.pdb
+*.ilk
+compile_commands.json
+
+# Local node state and secrets
+node-*/
+data/
+*.log
+LOCK
+proposer.key
+*.key
+*.keystore
+.env
+
+# Local tooling
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+Thumbs.db
+.DS_Store
+/docs/

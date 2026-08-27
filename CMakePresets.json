@@ -1,0 +1,153 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+
+    {
+      "name": "dev",
+      "displayName": "dev - fast iteration (default)",
+      "description": "Debug info, no optimisation, all warnings. The preset to use while writing code.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ASTROLUNE_WERROR": "OFF",
+        "ASTROLUNE_LTO": "OFF"
+      }
+    },
+
+    {
+      "name": "release",
+      "displayName": "release - optimised",
+      "description": "Optimised build with debug info retained for local profiling and devnet experiments.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ASTROLUNE_LTO": "OFF"
+      }
+    },
+
+    {
+      "name": "dist",
+      "displayName": "dist - maximum optimisation",
+      "description": "Full release with LTO and native tuning. Slow to build; for benchmarking and packaging.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ASTROLUNE_LTO": "ON",
+        "ASTROLUNE_UNITY": "ON",
+        "ASTROLUNE_BUILD_TESTS": "OFF",
+        "ASTROLUNE_BUILD_FUZZERS": "OFF"
+      }
+    },
+
+    {
+      "name": "tiny",
+      "displayName": "tiny - low-end machine / node only",
+      "description": "Core plus the node binary, nothing else. Smallest build; no C++ tooling, no tests.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ASTROLUNE_BUILD_TOOLS": "OFF",
+        "ASTROLUNE_BUILD_TESTS": "OFF",
+        "ASTROLUNE_BUILD_FUZZERS": "OFF",
+        "ASTROLUNE_BUILD_BENCH": "OFF"
+      }
+    },
+
+    {
+      "name": "asan",
+      "displayName": "asan - address + undefined sanitizers",
+      "description": "Debug build with ASan and UBSan. Both bug classes cause non-determinism, so the test suite runs here in CI.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ASTROLUNE_SANITIZER": "address+undefined",
+        "ASTROLUNE_WERROR": "ON"
+      }
+    },
+
+    {
+      "name": "ci",
+      "displayName": "ci - strict",
+      "description": "Warnings are errors. Used by GitHub Actions.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ASTROLUNE_WERROR": "ON"
+      }
+    },
+
+    {
+      "name": "fuzz",
+      "displayName": "fuzz - Clang libFuzzer + sanitizers",
+      "description": "Build decoder targets with libFuzzer, ASan and UBSan.",
+      "inherits": "asan",
+      "cacheVariables": {
+        "ASTROLUNE_LIBFUZZER": "ON"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "dev",     "configurePreset": "dev" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "dist",    "configurePreset": "dist" },
+    { "name": "tiny",    "configurePreset": "tiny" },
+    { "name": "asan",    "configurePreset": "asan" },
+    { "name": "ci",      "configurePreset": "ci" },
+    { "name": "fuzz",    "configurePreset": "fuzz" }
+  ],
+
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": { "outputOnFailure": true, "shortProgress": true },
+      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+    },
+    { "name": "dev",     "inherits": "base", "configurePreset": "dev" },
+    { "name": "release", "inherits": "base", "configurePreset": "release" },
+    { "name": "asan",    "inherits": "base", "configurePreset": "asan" },
+    { "name": "ci",      "inherits": "base", "configurePreset": "ci" }
+  ],
+
+  "workflowPresets": [
+    {
+      "name": "dev",
+      "description": "Configure, build and test in one command.",
+      "steps": [
+        { "type": "configure", "name": "dev" },
+        { "type": "build",     "name": "dev" },
+        { "type": "test",      "name": "dev" }
+      ]
+    },
+    {
+      "name": "ci",
+      "description": "What CI runs.",
+      "steps": [
+        { "type": "configure", "name": "ci" },
+        { "type": "build",     "name": "ci" },
+        { "type": "test",      "name": "ci" }
+      ]
+    },
+    {
+      "name": "asan",
+      "description": "Configure, build and test with sanitizers.",
+      "steps": [
+        { "type": "configure", "name": "asan" },
+        { "type": "build",     "name": "asan" },
+        { "type": "test",      "name": "asan" }
+      ]
+    }
+  ]
+}

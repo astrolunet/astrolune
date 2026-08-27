@@ -1,0 +1,115 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: windows-latest
+            platform: windows-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ runner.os == 'Windows' && 'cl' || 'gcc' }}
+      CXX: ${{ runner.os == 'Windows' && 'cl' || 'g++' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          $expected = "v$((Get-Content VERSION).Trim())"
+          if ($env:GITHUB_REF_NAME -ne $expected) {
+            throw "Tag $env:GITHUB_REF_NAME does not match VERSION ($expected)"
+          }
+
+      - name: Install libsodium (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev
+
+      - name: Install libsodium (Windows)
+        if: runner.os == 'Windows'
+        run: vcpkg install libsodium:x64-windows-static
+
+      - name: Configure distribution (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          cmake --preset dist
+          -DASTROLUNE_CRYPTO_BACKEND=sodium
+          -DSodium_LIBRARY=/usr/lib/x86_64-linux-gnu/libsodium.a
+
+      - name: Configure distribution (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake --preset dist
+          -DASTROLUNE_CRYPTO_BACKEND=sodium
+          "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static
+
+      - name: Build distribution
+        run: cmake --build --preset dist
+
+      - name: Verify node version
+        shell: pwsh
+        run: |
+          $suffix = if ($env:RUNNER_OS -eq "Windows") { ".exe" } else { "" }
+          $reported = & "build/dist/bin/alnode$suffix" --version
+          if ($reported -ne "alnode $((Get-Content VERSION).Trim())") {
+            throw "Unexpected version: $reported"
+          }
+
+      - name: Create release archive
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION).Trim()
+          $suffix = if ($env:RUNNER_OS -eq "Windows") { ".exe" } else { "" }
+          $archive = "astrolune-v$version-${{ matrix.platform }}.zip"
+          New-Item -ItemType Directory -Path package/bin | Out-Null
+          Copy-Item "build/dist/bin/alnode$suffix" package/bin/
+          Copy-Item "build/dist/bin/trocto$suffix" package/bin/
+          Copy-Item README.md, LICENSE, SECURITY.md, VERSION package/
+          Copy-Item examples package/examples -Recurse
+          Compress-Archive -Path package/* -DestinationPath $archive
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          "$hash  $archive" | Set-Content -Encoding ascii "$archive.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astrolune-${{ matrix.platform }}
+          path: |
+            astrolune-*.zip
+            astrolune-*.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: astrolune-*
+          path: release
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/astrolune-*.zip
+            release/astrolune-*.sha256

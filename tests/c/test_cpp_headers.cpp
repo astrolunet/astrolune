@@ -1,0 +1,12 @@
+#include "astrolune/arena.h"
+#include "astrolune/base.h"
+#include "astrolune/block.h"
+#include "astrolune/bytes.h"
+#include "astrolune/crypto.h"
+#include "astrolune/fixed.h"
+#include "astrolune/hash.h"
+#include "astrolune/potb.h"
+#include "astrolune/state.h"
+#include "astrolune/tx.h"
+#include "astrolune/vm.h"
+int main() { return 0; }

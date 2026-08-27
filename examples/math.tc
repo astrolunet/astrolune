@@ -1,0 +1,48 @@
+// Math library - reusable math functions for Trocto contracts.
+//
+// This is an example of the import system: other contracts can import
+// this file and call its internal functions.
+//
+// Note: In v0.2, imports are validated but not yet linked into the
+// calling module's function table. This file demonstrates the syntax
+// and will be fully functional in v0.3.
+
+contract Math {
+    // Returns the maximum of two u64 values.
+    fn max(a: u64, b: u64) -> u64 {
+        if (a > b) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
+    // Returns the minimum of two u64 values.
+    fn min(a: u64, b: u64) -> u64 {
+        if (a < b) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
+    // Returns the absolute difference between two u64 values.
+    fn abs_diff(a: u64, b: u64) -> u64 {
+        if (a > b) {
+            return a - b;
+        } else {
+            return b - a;
+        }
+    }
+
+    // Clamps a value between min and max bounds.
+    fn clamp(value: u64, min_val: u64, max_val: u64) -> u64 {
+        if (value < min_val) {
+            return min_val;
+        }
+        if (value > max_val) {
+            return max_val;
+        }
+        return value;
+    }
+}
