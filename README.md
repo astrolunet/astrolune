@@ -46,9 +46,11 @@ for the full model.
 > **Controlled-network release.** This is not a public mainnet. The validator
 > path uses configured PoTB committees, signed proposals, PREVOTE/PRECOMMIT
 > quorum and durable finality — built for consortiums and closed networks, not
-> permissionless deployment. The default cryptographic backend is explicitly
-> gated for development; use the sodium build for Ed25519 in anything real.
-> See [AUDIT.md](AUDIT.md) for the exact readiness boundary.
+> permissionless deployment. Signatures are a development stub by default;
+> the sodium build swaps in real Ed25519. VRF and VDF remain insecure stubs
+> either way, so `al_crypto_is_secure()` stays false until both are replaced.
+> See the [cryptography doc](https://landing-one-virid-56.vercel.app/en/docs/02-architecture/cryptography)
+> and [AUDIT.md](AUDIT.md) for the exact readiness boundary.
 
 ## Why C23, no dependencies
 
