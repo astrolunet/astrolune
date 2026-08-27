@@ -38,6 +38,11 @@ trocto examples/counter.tc -o counter.bin
 
 Full docs: [landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs)
 
+**Consensus: PoTB — Proof of Trusted Behavior.** A validator's weight comes
+from uptime, observed honest behaviour and its position in the trust graph —
+never from hashrate or stake. See the [PoTB spec](https://landing-one-virid-56.vercel.app/en/docs/01-consensus/potb)
+for the full model.
+
 > **Controlled-network release.** This is not a public mainnet. The validator
 > path uses configured PoTB committees, signed proposals, PREVOTE/PRECOMMIT
 > quorum and durable finality — built for consortiums and closed networks, not
