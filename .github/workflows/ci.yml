@@ -103,5 +103,6 @@ jobs:
       - name: Compare toolchain digests
         run: |
           test "$(find . -name 'determinism-*.txt' | wc -l)" -eq 3
-          test "$(cat determinism-*.txt | sort -u | wc -l)" -eq 1
-          cat determinism-*.txt | sort -u
+          tr -d '\r' < determinism-msvc.txt > determinism-msvc.normalized.txt
+          test "$(cat determinism-gcc.txt determinism-clang.txt determinism-msvc.normalized.txt | sort -u | wc -l)" -eq 1
+          cat determinism-gcc.txt determinism-clang.txt determinism-msvc.normalized.txt | sort -u
