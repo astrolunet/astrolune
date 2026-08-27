@@ -161,7 +161,8 @@ static void handle_transaction(al_p2p *network, al_p2p_peer *origin,
                                           payload)) {
         return;
     }
-    (void)al_p2p_relay_transaction(network, payload, origin);
+    al_size relayed = al_p2p_relay_transaction(network, payload, origin);
+    (void)relayed;
 }
 
 static void handle_block(al_p2p *network, al_p2p_peer *origin,
@@ -175,7 +176,8 @@ static void handle_block(al_p2p *network, al_p2p_peer *origin,
         !network->handlers.on_block(network->handlers.userdata, payload)) {
         return;
     }
-    (void)al_p2p_relay_block(network, payload, origin);
+    al_size relayed = al_p2p_relay_block(network, payload, origin);
+    (void)relayed;
 }
 
 static void handle_consensus(al_p2p *network, al_p2p_peer *origin,
@@ -194,7 +196,8 @@ static void handle_consensus(al_p2p *network, al_p2p_peer *origin,
                                         payload)) {
         return;
     }
-    (void)al_p2p_relay_consensus(network, type, payload, origin);
+    al_size relayed = al_p2p_relay_consensus(network, type, payload, origin);
+    (void)relayed;
 }
 
 static al_bool handle_finalized_block(al_p2p *network,
@@ -210,8 +213,9 @@ static al_bool handle_finalized_block(al_p2p *network,
         return AL_FALSE;
     }
     if (relay) {
-        (void)al_p2p_relay_consensus(network, AL_WIRE_FINALITY, payload,
-                                     origin);
+        al_size relayed = al_p2p_relay_consensus(
+            network, AL_WIRE_FINALITY, payload, origin);
+        (void)relayed;
     }
     return AL_TRUE;
 }
@@ -468,6 +472,7 @@ static void dispatch_frame(al_p2p *network, al_p2p_peer *peer,
     case AL_WIRE_FINALITY:
         (void)handle_finalized_block(network, peer, payload, AL_TRUE);
         break;
+    case AL_WIRE_TYPE_SENTINEL:
     default:
         peer_close(network, (al_size)(peer - network->peers));
         break;
@@ -737,7 +742,7 @@ void al_p2p_poll(al_p2p *network, al_u32 timeout_ms) {
         }
     }
 
-    (void)al_net_select(&readable, &writable, timeout_ms);
+    if (al_net_select(&readable, &writable, timeout_ms) < 0) return;
 
     /* Accept inbound connections while there is room. */
     if (network->has_listener &&

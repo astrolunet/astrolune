@@ -191,7 +191,8 @@ al_status al_tx_decode(al_bytes encoded, al_transaction *out) {
     out->resource_limit = tx_read_resources(&reader);
     out->max_base_price = tx_read_resources(&reader);
     out->tip = al_reader_u64(&reader);
-    out->type = (al_tx_type)al_reader_u8(&reader);
+    al_u8 type = al_reader_u8(&reader);
+    out->type = (al_tx_type)type;
     switch (out->type) {
     case AL_TX_TRANSFER:
         al_reader_address(&reader, &out->body.transfer.recipient);
@@ -207,12 +208,14 @@ al_status al_tx_decode(al_bytes encoded, al_transaction *out) {
         out->body.call.entrypoint = al_reader_u32(&reader);
         out->body.call.calldata = tx_read_payload(&reader);
         break;
-    case AL_TX_POTB:
-        out->body.potb.operation = (al_potb_operation)al_reader_u8(&reader);
+    case AL_TX_POTB: {
+        al_u8 operation = al_reader_u8(&reader);
+        out->body.potb.operation = (al_potb_operation)operation;
         al_reader_bytes(&reader, out->body.potb.target.bytes, AL_PUBKEY_SIZE);
         out->body.potb.amount = al_reader_u64(&reader);
         out->body.potb.data = tx_read_payload(&reader);
         break;
+    }
     case AL_TX_TYPE_SENTINEL:
     default:
         al_reader_fail(&reader, AL_ERR_MALFORMED);
@@ -619,7 +622,7 @@ static al_status tx_host_invoke(void *opaque, al_vm_host_id id,
         ++host->receipt->event_count;
         return AL_OK;
     }
-    case AL_VM_HOST_HASH_TAGGED:
+    case AL_VM_HOST_HASH_TAGGED: {
         AL_TRY(host_memory(io, a[0], a[1]));
         AL_TRY(host_memory(io, a[2], AL_HASH_SIZE));
         const char *tag = vm_hash_domain_tag(a[3]);
@@ -629,6 +632,7 @@ static al_status tx_host_invoke(void *opaque, al_vm_host_id id,
                        &hash);
         al_memcpy(io->memory.data + (al_size)a[2], hash.bytes, AL_HASH_SIZE);
         return AL_OK;
+    }
     case AL_VM_HOST_VERIFY_SIGNATURE: {
         AL_TRY(host_memory(io, a[0], AL_HASH_SIZE));
         AL_TRY(host_memory(io, a[1], AL_PUBKEY_SIZE));

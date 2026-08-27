@@ -65,15 +65,9 @@ if(MSVC)
       WIN32_LEAN_AND_MEAN
   )
 else()
-  # GCC and Clang: request C23 explicitly when the compiler is new enough,
-  # otherwise let CMake decay to C17. Both are fine for the portable subset.
-  include(CheckCCompilerFlag)
-  check_c_compiler_flag(-std=c23 ASTROLUNE_HAS_STD_C23)
-  if(NOT ASTROLUNE_HAS_STD_C23)
-    # include() shares the caller's scope, so a plain set() is what propagates.
-    set(CMAKE_C_STANDARD 17)
-    message(STATUS "C23 unavailable in ${CMAKE_C_COMPILER_ID}; using C17")
-  endif()
+  target_compile_definitions(astrolune_std INTERFACE
+      _POSIX_C_SOURCE=200809L
+  )
 endif()
 
 # --- Optional codegen knobs --------------------------------------------------

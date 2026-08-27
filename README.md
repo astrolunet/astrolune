@@ -2,12 +2,16 @@
 
 [![CI](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml/badge.svg)](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/astrolunet/astrolune)](https://github.com/astrolunet/astrolune/releases/latest)
+[![Documentation](https://img.shields.io/badge/docs-online-0A7B83.svg)](https://landing-one-virid-56.vercel.app/docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![C23](https://img.shields.io/badge/C-23-00599C.svg)](https://en.cppreference.com/w/c/23)
 
 Astrolune is a deterministic blockchain implementation in C23 with a small
 contract VM, the Trocto contract compiler, append-only node storage, TCP gossip,
 PoTB validator finality and a JSON-RPC interface for controlled networks.
+
+The complete blockchain documentation is available at
+[landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs).
 
 > **Controlled-network release.** The validator path uses configured PoTB
 > committees, signed proposals, PREVOTE/PRECOMMIT quorum and durable finality.

@@ -17,7 +17,8 @@ al_status al_wire_header_decode(al_bytes data, al_wire_header *out) {
         return AL_ERR_MALFORMED;
     }
     out->version = al_reader_u8(&reader);
-    out->type = (al_wire_type)al_reader_u8(&reader);
+    al_u8 type = al_reader_u8(&reader);
+    out->type = (al_wire_type)type;
     if (al_reader_u16(&reader) != 0u) return AL_ERR_NOT_CANONICAL;
     out->payload_len = al_reader_u32(&reader);
 

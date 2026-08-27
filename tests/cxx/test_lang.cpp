@@ -484,7 +484,7 @@ al_status submit_calldata(Fixture& f, const al_keypair& kp, uint64_t nonce,
                           const std::vector<uint8_t>& container);
 
 struct Fixture {
-    al_arena state_arena;
+    al_arena state_arena{};
     std::vector<al_state_memory_node> nodes;
     std::vector<al_state_memory_value> values;
     al_state_memory_store memory;
@@ -492,12 +492,17 @@ struct Fixture {
     al_state state;
 
     al_genesis genesis;
-    al_arena execution_arena;
+    al_arena execution_arena{};
     std::vector<al_transaction> block_txs;
     std::vector<al_receipt> receipts;
     std::vector<al_node_mempool_entry> mempool_entries;
     std::vector<al_u8> mempool_bytes;
     al_node node;
+
+    ~Fixture() {
+        al_arena_destroy(&execution_arena);
+        al_arena_destroy(&state_arena);
+    }
 
     al_status bind() {
         genesis.initial_state_root = state.root;

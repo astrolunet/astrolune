@@ -42,7 +42,7 @@ static void address_text_hrp_prefix(al_u8 *out) {
     for (al_size i = 0u; i < length; ++i) out[i] = (al_u8)(hrp[i] >> 5);
     out[length] = 0u;
     for (al_size i = 0u; i < length; ++i)
-        out[length + 1u + i] = (al_u8)(hrp[i] & 31u);
+        out[length + 1u + i] = (al_u8)(((unsigned)(unsigned char)hrp[i]) & 31u);
 }
 
 static int address_text_symbol_value(char c, al_u8 *value) {

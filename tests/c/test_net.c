@@ -81,7 +81,7 @@ AL_TEST(wire_hello_roundtrip) {
     al_writer bad_writer;
     al_writer_init(&bad_writer, bad, sizeof(bad));
     al_wire_hello_encode(&bad_writer, &decoded);
-    (void)al_writer_finish(&bad_writer);
+    AL_CHECK_EQ_STATUS(al_writer_finish(&bad_writer), AL_OK);
     al_wire_hello ignored;
     AL_CHECK_EQ_STATUS(
         al_wire_hello_decode(al_bytes_make(bad, al_writer_len(&bad_writer)),
@@ -95,7 +95,7 @@ AL_TEST(wire_get_blocks_rejects_unbounded_requests) {
     al_writer writer;
     al_writer_init(&writer, buffer, sizeof(buffer));
     al_wire_get_blocks_encode(&writer, &request);
-    (void)al_writer_finish(&writer);
+    AL_CHECK_EQ_STATUS(al_writer_finish(&writer), AL_OK);
 
     al_wire_get_blocks decoded;
     AL_CHECK_EQ_STATUS(
@@ -107,7 +107,7 @@ AL_TEST(wire_get_blocks_rejects_unbounded_requests) {
     al_writer big;
     al_writer_init(&big, buffer, sizeof(buffer));
     al_wire_get_blocks_encode(&big, &request);
-    (void)al_writer_finish(&big);
+    AL_CHECK_EQ_STATUS(al_writer_finish(&big), AL_OK);
     AL_CHECK_EQ_STATUS(
         al_wire_get_blocks_decode(al_bytes_make(buffer, al_writer_len(&big)),
                                   &decoded),
@@ -117,7 +117,7 @@ AL_TEST(wire_get_blocks_rejects_unbounded_requests) {
     al_writer good;
     al_writer_init(&good, buffer, sizeof(buffer));
     al_wire_get_blocks_encode(&good, &request);
-    (void)al_writer_finish(&good);
+    AL_CHECK_EQ_STATUS(al_writer_finish(&good), AL_OK);
     AL_CHECK_EQ_STATUS(
         al_wire_get_blocks_decode(al_bytes_make(buffer, al_writer_len(&good)),
                                   &decoded),
@@ -327,8 +327,11 @@ AL_TEST(p2p_loopback_handshake_and_gossip) {
                     sizeof(transaction)) == 0);
 
     /* Redelivering identical bytes must hit the dedup ring, not the node. */
-    (void)al_p2p_relay_transaction(
-        &client, al_bytes_make(transaction, sizeof(transaction)), NULL);
+    AL_CHECK_EQ_U64(al_p2p_relay_transaction(
+                        &client,
+                        al_bytes_make(transaction, sizeof(transaction)),
+                        NULL),
+                    1u);
     pump_until(&client, &server, NULL);
     AL_CHECK_EQ_U64((al_u64)server_events.blocks_delivered, 0u);
     AL_CHECK(server_events.transaction_seen); /* still exactly one delivery */

@@ -228,7 +228,7 @@ private:
             return take_pending_label(head.line);
         }
 
-        if (head.kind != TokenKind::Ident) {
+        if (head.kind != TokenKind::Ident && head.kind != TokenKind::Keyword) {
             diagnostics_.error(head.line,
                                "unexpected token '" + head.text + "'");
             return false;

@@ -24,15 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Little-endian helpers for calldata packing; the canonical encoding is
- * little-endian everywhere (see astrolune/bytes.h). */
-static uint64_t load_le64_local(const al_u8 *p) {
-    return (uint64_t)p[0] | ((uint64_t)p[1] << 8) | ((uint64_t)p[2] << 16) |
-           ((uint64_t)p[3] << 24) | ((uint64_t)p[4] << 32) |
-           ((uint64_t)p[5] << 40) | ((uint64_t)p[6] << 48) |
-           ((uint64_t)p[7] << 56);
-}
-
+/* Calldata uses the same little-endian encoding as the canonical codecs. */
 static void store_le64_local(al_u8 *p, uint64_t v) {
     for (unsigned i = 0; i < 8; ++i) {
         p[i] = (al_u8)((v >> (i * 8)) & 0xffu);
@@ -264,6 +256,7 @@ static al_status runtime_open(alnode_runtime *runtime,
 
     al_u8 *genesis_bytes = NULL;
     al_size genesis_size = 0u;
+    const al_block_header *head = NULL;
     al_status status = read_file(genesis_path, &genesis_bytes,
                                  &genesis_size);
     if (status == AL_OK) {
@@ -307,8 +300,7 @@ static al_status runtime_open(alnode_runtime *runtime,
     buffers.block_transaction_capacity = AL_BLOCK_MAX_TRANSACTIONS;
     buffers.receipts = runtime->receipts;
     buffers.receipt_capacity = AL_BLOCK_MAX_TRANSACTIONS;
-    const al_block_header *head =
-        runtime->durable ? al_node_storage_head(&runtime->storage) : NULL;
+    head = runtime->durable ? al_node_storage_head(&runtime->storage) : NULL;
     status = al_node_open(&runtime->node, &runtime->genesis,
                           &runtime->state, &runtime->execution_arena,
                           buffers, head);
@@ -699,17 +691,20 @@ static int command_keygen(const char *seed_text) {
         al_status status = al_keypair_from_seed(seed, &keypair);
         if (status != AL_OK) return report_status("derive key", status);
         char seed_hex[65];
-        (void)al_hex_encode(al_bytes_make(seed, sizeof(seed)), seed_hex,
-                            sizeof(seed_hex));
+        status = al_hex_encode(al_bytes_make(seed, sizeof(seed)), seed_hex,
+                               sizeof(seed_hex));
         al_secure_zero(seed, sizeof(seed));
+        if (status != AL_OK) return report_status("encode seed", status);
         (void)printf("seed %s\n", seed_hex);
     }
 
     al_address address;
     al_address_from_pubkey(&keypair.pk, &address);
     char public_hex[AL_PUBKEY_SIZE * 2u + 1u];
-    (void)al_hex_encode(al_bytes_make(keypair.pk.bytes, AL_PUBKEY_SIZE),
-                        public_hex, sizeof(public_hex));
+    al_status status = al_hex_encode(
+        al_bytes_make(keypair.pk.bytes, AL_PUBKEY_SIZE), public_hex,
+        sizeof(public_hex));
+    if (status != AL_OK) return report_status("encode public key", status);
     (void)printf("public_key %s\n", public_hex);
     char text[AL_ADDRESS_TEXT_SIZE];
     if (al_address_to_bech32(&address, text, sizeof(text)) == AL_OK) {
@@ -753,16 +748,6 @@ static al_status parse_address_text(const char *text, al_address *out) {
     memcpy(buffer, text, AL_ADDRESS_SIZE * 2u);
     buffer[AL_ADDRESS_SIZE * 2u] = '\0';
     return al_hex_decode(buffer, out->bytes, sizeof(out->bytes), NULL);
-}
-
-/* Print an address the way users see it everywhere: bech32. */
-static void print_address(const al_address *address) {
-    char text[AL_ADDRESS_TEXT_SIZE];
-    if (al_address_to_bech32(address, text, sizeof(text)) != AL_OK) {
-        (void)printf("(address encode failed)\n");
-        return;
-    }
-    (void)printf("%s\n", text);
 }
 
 /* Devnet signing convention: an explicit seed wins; otherwise the
@@ -1089,6 +1074,7 @@ static int command_simulate(int argc, char **argv) {
     const char *datadir = positionals[1];
 
     alnode_runtime runtime;
+    uint64_t nonce = 0u;
     al_status status = runtime_open(&runtime, genesis_path, datadir);
     if (status != AL_OK) return report_status("open node storage", status);
 
@@ -1100,7 +1086,6 @@ static int command_simulate(int argc, char **argv) {
     al_address sender_address;
     al_address_from_pubkey(&signer.pk, &sender_address);
     status = al_state_get(&runtime.state, &sender_address, &sender_account);
-    uint64_t nonce = 0u;
     if (status == AL_OK) {
         nonce = sender_account.nonce;
     } else if (status != AL_ERR_NOT_FOUND) {
@@ -1141,7 +1126,8 @@ static int command_simulate(int argc, char **argv) {
         tx.body.call.entrypoint = (al_u32)options.entrypoint;
         tx.body.call.calldata =
             al_bytes_make(calldata, options.arg_count * 8u);
-        AL_TRY(al_tx_sign(&tx, &signer.sk));
+        status = al_tx_sign(&tx, &signer.sk);
+        if (status != AL_OK) goto done;
 
         al_tx_context context;
         memset(&context, 0, sizeof(context));
@@ -1349,12 +1335,12 @@ static int command_run(const run_options *options) {
                     : (config.enable_rpc ? "127.0.0.1" : "off"),
                 (unsigned)config.rpc_port);
 
-    (void)al_daemon_run(daemon);
+    al_bool clean_shutdown = al_daemon_run(daemon);
     al_daemon_close(daemon);
+    AL_LOG_INFO("alnode", "stopped");
     al_log_shutdown();
     al_net_shutdown();
-    AL_LOG_INFO("alnode", "stopped");
-    return 0;
+    return clean_shutdown ? 0 : 1;
 }
 
 static al_bool parse_port(const char *text, al_u16 *out) {

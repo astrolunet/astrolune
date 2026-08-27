@@ -16,19 +16,21 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x64
+            cc: gcc
+            cxx: g++
           - os: windows-latest
             platform: windows-x64
+            cc: cl
+            cxx: cl
     runs-on: ${{ matrix.os }}
     env:
-      CC: ${{ runner.os == 'Windows' && 'cl' || 'gcc' }}
-      CXX: ${{ runner.os == 'Windows' && 'cl' || 'g++' }}
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
-
-      - uses: seanmiddleditch/gha-setup-ninja@v5
 
       - name: Validate release tag
         shell: pwsh

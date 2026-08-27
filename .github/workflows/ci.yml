@@ -30,10 +30,9 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
-      - uses: seanmiddleditch/gha-setup-ninja@v5
       - run: cmake --workflow --preset ci
       - name: Produce determinism digest
         run: ./build/ci/bin/determinism_fixture > determinism-${{ matrix.id }}.txt
@@ -59,10 +58,9 @@ jobs:
       CC: ${{ startsWith(matrix.os, 'ubuntu') && 'clang' || 'cl' }}
       CXX: ${{ startsWith(matrix.os, 'ubuntu') && 'clang++' || 'cl' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
-      - uses: seanmiddleditch/gha-setup-ninja@v5
       - run: cmake --workflow --preset asan
 
   sodium:
@@ -72,10 +70,9 @@ jobs:
       CC: gcc
       CXX: g++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install libsodium
         run: sudo apt-get update && sudo apt-get install -y libsodium-dev
-      - uses: seanmiddleditch/gha-setup-ninja@v5
       - run: cmake --preset dev -DASTROLUNE_CRYPTO_BACKEND=sodium
       - run: cmake --build --preset dev
       - run: ctest --preset dev --output-on-failure
@@ -87,8 +84,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
-      - uses: seanmiddleditch/gha-setup-ninja@v5
+      - uses: actions/checkout@v5
       - run: cmake --preset fuzz
       - run: cmake --build --preset fuzz
       - run: ./build/fuzz/bin/fuzz_tx -runs=100 fuzz/corpus/tx

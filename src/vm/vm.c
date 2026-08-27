@@ -771,7 +771,7 @@ al_status al_vm_execute(al_bytes container, al_bytes calldata,
             else if (insn.op == AL_VM_MUL && al_mul_overflow_u64(lhs, rhs, &value))
                 status = AL_ERR_ARITH_OVERFLOW;
             else {
-                switch (insn.op) {
+                switch ((al_u32)insn.op) {
                 case AL_VM_DIV: value = lhs / rhs; break;
                 case AL_VM_MOD: value = lhs % rhs; break;
                 case AL_VM_EQ: value = (lhs == rhs); break;
@@ -1136,8 +1136,11 @@ al_status al_vm_execute(al_bytes container, al_bytes calldata,
                 break;
             }
             vm_touch_memory(&out->resources, lhs, len);
-            al_memcpy(memory + (al_size)lhs,
-                      local_execution.code.data + (al_size)src, (al_size)len);
+            if (len != 0u) {
+                al_memcpy(memory + (al_size)lhs,
+                          local_execution.code.data + (al_size)src,
+                          (al_size)len);
+            }
             break;
         }
         case AL_VM_OPCODE_SENTINEL:

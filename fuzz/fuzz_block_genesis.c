@@ -10,13 +10,15 @@ int LLVMFuzzerTestOneInput(const al_u8 *data, al_size size) {
         if (data[0] == 0u) {
             al_transaction transactions[64];
             al_block block;
-            (void)al_block_decode(encoded, transactions,
-                                  AL_COUNTOF(transactions), &block);
+            al_status status = al_block_decode(
+                encoded, transactions, AL_COUNTOF(transactions), &block);
+            (void)status;
         } else {
             al_genesis genesis;
             al_genesis_allocation allocations[AL_GENESIS_MAX_ALLOCATIONS];
-            (void)al_genesis_decode(encoded, allocations,
-                                    AL_COUNTOF(allocations), &genesis);
+            al_status status = al_genesis_decode(
+                encoded, allocations, AL_COUNTOF(allocations), &genesis);
+            (void)status;
         }
     }
     free(allocation);

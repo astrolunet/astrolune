@@ -26,16 +26,18 @@
 
 #if defined(__SIZEOF_INT128__)
 
+__extension__ typedef unsigned __int128 al_uint128;
+
 static void al_umul(al_u64 a, al_u64 b, al_u64 *hi, al_u64 *lo) {
-    unsigned __int128 p = (unsigned __int128)a * (unsigned __int128)b;
+    al_uint128 p = (al_uint128)a * (al_uint128)b;
     *lo = (al_u64)p;
     *hi = (al_u64)(p >> 64);
 }
 
 /* (hi:lo) / d, requires hi < d so the quotient fits in 64 bits. */
 static al_u64 al_udiv(al_u64 hi, al_u64 lo, al_u64 d) {
-    unsigned __int128 n = ((unsigned __int128)hi << 64) | (unsigned __int128)lo;
-    return (al_u64)(n / (unsigned __int128)d);
+    al_uint128 n = ((al_uint128)hi << 64) | (al_uint128)lo;
+    return (al_u64)(n / (al_uint128)d);
 }
 
 #else /* MSVC and any other toolchain without __int128 */
@@ -120,7 +122,11 @@ al_fixed al_fixed_from_int(al_i64 v) {
     if (v < (al_i64)INT32_MIN) {
         return AL_FIXED_MIN;
     }
-    return (al_fixed)v << AL_FIXED_FRAC_BITS;
+    if (v == (al_i64)INT32_MIN) {
+        return AL_FIXED_MIN;
+    }
+    al_u64 magnitude = al_abs_u64(v) << AL_FIXED_FRAC_BITS;
+    return v < 0 ? -(al_fixed)magnitude : (al_fixed)magnitude;
 }
 
 al_fixed al_fixed_from_ratio(al_i64 n, al_i64 d) {
@@ -314,7 +320,7 @@ al_fixed al_fixed_log2(al_fixed v) {
         m = uv;
     }
 
-    al_fixed result = (al_fixed)exponent << AL_FIXED_FRAC_BITS;
+    al_fixed result = (al_fixed)(exponent * (al_i64)AL_FIXED_ONE);
 
     /*
      * Bit-by-bit refinement. At each step m is in [1, 2); squaring puts it in
@@ -361,7 +367,8 @@ al_fixed al_fixed_exp2(al_fixed v) {
     }
 
     /* Fractional part in [0, 1), exact because floor was used. */
-    al_u64 frac = (al_u64)(v - (int_part << AL_FIXED_FRAC_BITS));
+    al_fixed integer_value = (al_fixed)((al_i64)int_part * AL_FIXED_ONE);
+    al_u64 frac = (al_u64)(v - integer_value);
 
     /* 2^frac = product of 2^(2^-(i+1)) over the set bits of frac, MSB first. */
     al_u64 result = (al_u64)AL_FIXED_ONE;

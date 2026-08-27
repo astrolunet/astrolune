@@ -100,7 +100,7 @@ int main() {
     const auto declarations = public_declarations(root / "include" / "astrolune");
     const auto manifest = manifest_symbols(root / "abi" /
                                            "boundary_symbols.cpp");
-    bool failed = report_duplicates("public headers", declarations) |
+    bool failed = report_duplicates("public headers", declarations) ||
                   report_duplicates("ABI manifest", manifest);
     for (const auto &[name, count] : declarations) {
         (void)count;

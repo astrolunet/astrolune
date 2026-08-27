@@ -8,6 +8,8 @@
  * header, which is the consumer this file stands in for.
  *
  * These translation units define nothing. The compiler succeeding is the result.
+ *
+ * This file is not a joke. The joke is you expecting something interesting here.
  */
 
 #include "astrolune/base.h"

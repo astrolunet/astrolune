@@ -39,6 +39,12 @@ static int al_test_cases    = 0;
 
 #define AL_TEST(name) static void name(void)
 
+#if defined(__cplusplus)
+#  define AL_TEST_CAST(type, value) static_cast<type>(value)
+#else
+#  define AL_TEST_CAST(type, value) ((type)(value))
+#endif
+
 /* Report a failure and carry on. */
 #define AL_FAIL_AT(fmt, ...)                                            \
     do {                                                                \
@@ -66,25 +72,26 @@ static int al_test_cases    = 0;
 #define AL_CHECK_EQ_U64(actual, expected)                               \
     do {                                                                \
         ++al_test_checks;                                               \
-        al_u64 al_a_ = (al_u64)(actual);                                \
-        al_u64 al_e_ = (al_u64)(expected);                              \
+        al_u64 al_a_ = AL_TEST_CAST(al_u64, actual);                    \
+        al_u64 al_e_ = AL_TEST_CAST(al_u64, expected);                  \
         if (al_a_ != al_e_) {                                           \
             AL_FAIL_AT("%s: got %llu (0x%llx), want %llu (0x%llx)",      \
-                       #actual, (unsigned long long)al_a_,               \
-                       (unsigned long long)al_a_,                        \
-                       (unsigned long long)al_e_,                        \
-                       (unsigned long long)al_e_);                       \
+                       #actual, AL_TEST_CAST(unsigned long long, al_a_), \
+                       AL_TEST_CAST(unsigned long long, al_a_),          \
+                       AL_TEST_CAST(unsigned long long, al_e_),          \
+                       AL_TEST_CAST(unsigned long long, al_e_));         \
         }                                                               \
     } while (0)
 
 #define AL_CHECK_EQ_I64(actual, expected)                               \
     do {                                                                \
         ++al_test_checks;                                               \
-        al_i64 al_a_ = (al_i64)(actual);                                \
-        al_i64 al_e_ = (al_i64)(expected);                              \
+        al_i64 al_a_ = AL_TEST_CAST(al_i64, actual);                    \
+        al_i64 al_e_ = AL_TEST_CAST(al_i64, expected);                  \
         if (al_a_ != al_e_) {                                           \
             AL_FAIL_AT("%s: got %lld, want %lld", #actual,               \
-                       (long long)al_a_, (long long)al_e_);              \
+                       AL_TEST_CAST(long long, al_a_),                   \
+                       AL_TEST_CAST(long long, al_e_));                  \
         }                                                               \
     } while (0)
 
@@ -92,13 +99,15 @@ static int al_test_cases    = 0;
 #define AL_CHECK_NEAR_I64(actual, expected, tol)                        \
     do {                                                                \
         ++al_test_checks;                                               \
-        al_i64 al_a_ = (al_i64)(actual);                                \
-        al_i64 al_e_ = (al_i64)(expected);                              \
+        al_i64 al_a_ = AL_TEST_CAST(al_i64, actual);                    \
+        al_i64 al_e_ = AL_TEST_CAST(al_i64, expected);                  \
         al_i64 al_d_ = (al_a_ > al_e_) ? (al_a_ - al_e_) : (al_e_ - al_a_); \
-        if (al_d_ > (al_i64)(tol)) {                                     \
+        if (al_d_ > AL_TEST_CAST(al_i64, tol)) {                         \
             AL_FAIL_AT("%s: got %lld, want %lld +/- %lld (off by %lld)",  \
-                       #actual, (long long)al_a_, (long long)al_e_,       \
-                       (long long)(tol), (long long)al_d_);               \
+                       #actual, AL_TEST_CAST(long long, al_a_),          \
+                       AL_TEST_CAST(long long, al_e_),                   \
+                       AL_TEST_CAST(long long, tol),                     \
+                       AL_TEST_CAST(long long, al_d_));                  \
         }                                                               \
     } while (0)
 

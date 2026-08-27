@@ -67,15 +67,6 @@ static void config_set_u32(const al_toml_value *tbl, const char *key,
         *field = (al_u32)val;
 }
 
-/* Set a config string field from a sub-table. */
-static void config_set_string_sub(const al_toml_value *root,
-                                  const char *section, const char *key,
-                                  const char **field) {
-    if (*field != NULL) return;
-    const al_toml_value *tbl = al_toml_get(root, section);
-    if (tbl) config_set_string(tbl, key, field);
-}
-
 /* ------------------------------------------------------------------ */
 /* Public API                                                           */
 /* ------------------------------------------------------------------ */

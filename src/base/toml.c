@@ -7,11 +7,6 @@
 #include <string.h>
 #include <ctype.h>
 
-/* MSVC uses strtok_s instead of strtok_r. */
-#if defined(AL_OS_WINDOWS)
-#  define strtok_r(str, delim, save) strtok_s(str, delim, save)
-#endif
-
 /* ------------------------------------------------------------------ */
 /* Arena-style bump allocator for parse results                        */
 /* ------------------------------------------------------------------ */
@@ -298,10 +293,18 @@ static al_toml_value *parse_value(toml_parser *p) {
         return parse_array(p);
     case TOK_LBRACE:
         return parse_inline_table(p);
-    default:
+    case TOK_KEY:
+    case TOK_RBRACKET:
+    case TOK_RBRACE:
+    case TOK_EQUALS:
+    case TOK_COMMA:
+    case TOK_DOT:
+    case TOK_EOF:
+    case TOK_ERROR:
         p->status = AL_ERR_MALFORMED;
         return NULL;
     }
+    return NULL;
 }
 
 /* Parse inline table: { key = val, key2 = val2 } */
@@ -378,26 +381,31 @@ static al_toml_value *table_get_or_create(toml_parser *p, al_toml_value *tbl,
 /* Parse a dotted key path like "a.b.c" and return the deepest table. */
 static al_toml_value *resolve_dotted_path(toml_parser *p, al_toml_value *root,
                                           const char *key, al_size key_len) {
-    /* Copy key to work with. */
-    char *buf = toml_alloc_str(p->alloc, key, key_len);
-    if (!buf) { p->status = AL_ERR_OUT_OF_MEMORY; return NULL; }
-
     al_toml_value *cur = root;
-    char *save = NULL;
-    char *tok = strtok_r(buf, ".", &save);
-    while (tok) {
-        char *next = strtok_r(NULL, ".", &save);
-        if (next) {
-            /* Intermediate: must be (or become) a table. */
-            cur = table_get_or_create(p, cur, tok);
-            if (!cur) return NULL;
-        } else {
-            /* Leaf: return the table so caller can add to it. */
-            return cur;
+    const char *cursor = key;
+    const char *end = key + key_len;
+    while (cursor < end) {
+        while (cursor < end && (*cursor == ' ' || *cursor == '\t')) cursor++;
+        const char *segment_end = cursor;
+        while (segment_end < end && *segment_end != '.') segment_end++;
+        const char *trimmed_end = segment_end;
+        while (trimmed_end > cursor &&
+               (trimmed_end[-1] == ' ' || trimmed_end[-1] == '\t')) {
+            trimmed_end--;
         }
-        tok = next;
+        al_size segment_len = (al_size)(trimmed_end - cursor);
+        if (segment_len == 0u || segment_len >= 256u) {
+            p->status = AL_ERR_MALFORMED;
+            return NULL;
+        }
+        char segment[256];
+        memcpy(segment, cursor, segment_len);
+        segment[segment_len] = '\0';
+        cur = table_get_or_create(p, cur, segment);
+        if (cur == NULL) return NULL;
+        cursor = segment_end < end ? segment_end + 1 : end;
     }
-    return root;
+    return cur;
 }
 
 /* ------------------------------------------------------------------ */
@@ -451,11 +459,7 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
             /* Handle dotted keys within a line: a.b.c = value */
             while (parser.cur.kind == TOK_KEY || parser.cur.kind == TOK_STRING ||
                    parser.cur.kind == TOK_DOT) {
-                if (parser.cur.kind == TOK_DOT) {
-                    parser_advance(&parser);
-                } else {
-                    parser_advance(&parser);
-                }
+                parser_advance(&parser);
             }
 
             al_size full_key_len = (al_size)(parser.cur.start - key_start);
@@ -528,13 +532,18 @@ const al_toml_value *al_toml_get_path(const al_toml_value *root,
                                       const char *path) {
     if (!root || !path) return NULL;
     const al_toml_value *cur = root;
-    char buf[256];
-    snprintf(buf, sizeof(buf), "%s", path);
-    char *save = NULL;
-    char *tok = strtok_r(buf, ".", &save);
-    while (tok && cur) {
-        cur = al_toml_get(cur, tok);
-        tok = strtok_r(NULL, ".", &save);
+    const char *cursor = path;
+    while (*cursor != '\0' && cur != NULL) {
+        const char *dot = strchr(cursor, '.');
+        al_size segment_len = dot != NULL
+                                  ? (al_size)(dot - cursor)
+                                  : (al_size)strlen(cursor);
+        if (segment_len == 0u || segment_len >= 256u) return NULL;
+        char segment[256];
+        memcpy(segment, cursor, segment_len);
+        segment[segment_len] = '\0';
+        cur = al_toml_get(cur, segment);
+        cursor = dot != NULL ? dot + 1 : cursor + segment_len;
     }
     return cur;
 }

@@ -7,7 +7,9 @@ int LLVMFuzzerTestOneInput(const al_u8 *data, al_size size) {
     data = fuzz_normalize(data, size, &normalized_size, &allocation);
     al_arena arena;
     if (al_arena_init(&arena, 0u) == AL_OK) {
-        (void)al_vm_validate(al_bytes_make(data, normalized_size), NULL, &arena);
+        al_status status = al_vm_validate(
+            al_bytes_make(data, normalized_size), NULL, &arena);
+        (void)status;
         al_arena_destroy(&arena);
     }
     free(allocation);

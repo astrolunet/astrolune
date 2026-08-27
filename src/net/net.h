@@ -126,8 +126,8 @@ void al_net_set_add(al_net_set *set, al_socket s);
 AL_NODISCARD al_bool al_net_set_contains(const al_net_set *set, al_socket s);
 
 /* Wait up to timeout_ms for readiness. Returns the number of ready sockets. */
-AL_NODISCARD int al_net_select(const al_net_set *readable,
-                               const al_net_set *writable, al_u32 timeout_ms);
+AL_NODISCARD int al_net_select(al_net_set *readable,
+                               al_net_set *writable, al_u32 timeout_ms);
 
 /* Monotonic milliseconds since an arbitrary fixed point. Never goes backwards;
  * used for every timeout in this module. */

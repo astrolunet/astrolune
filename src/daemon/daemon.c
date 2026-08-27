@@ -196,8 +196,9 @@ static al_status daemon_consensus_init(al_daemon *daemon) {
             &daemon->committee, al_node_next_height(&daemon->node), 0u);
         char leader_hex[AL_PUBKEY_SIZE * 2u + 1u];
         if (leader != NULL) {
-            (void)al_hex_encode(al_bytes_make(leader->bytes, AL_PUBKEY_SIZE),
-                                leader_hex, sizeof(leader_hex));
+            AL_TRY(al_hex_encode(
+                al_bytes_make(leader->bytes, AL_PUBKEY_SIZE), leader_hex,
+                sizeof(leader_hex)));
         } else {
             leader_hex[0] = '\0';
         }
@@ -455,8 +456,9 @@ static al_status daemon_emit_vote(al_daemon *daemon,
     al_size written = 0u;
     AL_TRY(al_consensus_vote_encode(
         &vote, (al_bytes_mut){ encoded, sizeof(encoded) }, &written));
-    (void)al_p2p_relay_consensus(&daemon->p2p, AL_WIRE_VOTE,
-                                 al_bytes_make(encoded, written), NULL);
+    al_size relayed = al_p2p_relay_consensus(
+        &daemon->p2p, AL_WIRE_VOTE, al_bytes_make(encoded, written), NULL);
+    (void)relayed;
     return AL_OK;
 }
 
@@ -483,12 +485,13 @@ static al_status daemon_finalize_pending(
                                    daemon->pending_block_size);
     AL_TRY(al_node_accept_encoded_block(&daemon->node, block));
     al_size certificate_size = 0u;
-    (void)al_finality_certificate_encode(
+    al_status status = al_finality_certificate_encode(
         certificate, (al_bytes_mut){ NULL, 0u }, &certificate_size);
+    if (status != AL_ERR_BUFFER_TOO_SMALL) return status;
     al_u8 *encoded_certificate = (al_u8 *)malloc(certificate_size);
     if (encoded_certificate == NULL) return AL_ERR_OUT_OF_MEMORY;
     al_size certificate_written = 0u;
-    al_status status = al_finality_certificate_encode(
+    status = al_finality_certificate_encode(
         certificate,
         (al_bytes_mut){ encoded_certificate, certificate_size },
         &certificate_written);
@@ -512,8 +515,12 @@ static al_status daemon_finalize_pending(
             al_bytes_make(encoded_certificate, certificate_written), block
         };
         al_size required = 0u;
-        (void)al_wire_finalized_block_encode(
+        status = al_wire_finalized_block_encode(
             &finalized, (al_bytes_mut){ NULL, 0u }, &required);
+        if (status != AL_ERR_BUFFER_TOO_SMALL) {
+            free(encoded_certificate);
+            return status;
+        }
         al_u8 *encoded = (al_u8 *)malloc(required);
         if (encoded == NULL) {
             free(encoded_certificate);
@@ -523,9 +530,10 @@ static al_status daemon_finalize_pending(
         status = al_wire_finalized_block_encode(
             &finalized, (al_bytes_mut){ encoded, required }, &written);
         if (status == AL_OK) {
-            (void)al_p2p_relay_consensus(
+            al_size relayed = al_p2p_relay_consensus(
                 &daemon->p2p, AL_WIRE_FINALITY,
                 al_bytes_make(encoded, written), NULL);
+            (void)relayed;
         }
         free(encoded);
         if (status != AL_OK) {
@@ -780,17 +788,19 @@ static al_status daemon_produce_block(al_daemon *daemon) {
 
         al_wire_proposal wire = { consensus_proposal, encoded };
         al_size payload_size = 0u;
-        (void)al_wire_proposal_encode(&wire, (al_bytes_mut){ NULL, 0u },
-                                      &payload_size);
+        status = al_wire_proposal_encode(
+            &wire, (al_bytes_mut){ NULL, 0u }, &payload_size);
+        if (status != AL_ERR_BUFFER_TOO_SMALL) return status;
         al_u8 *payload = (al_u8 *)malloc(payload_size);
         if (payload == NULL) return AL_ERR_OUT_OF_MEMORY;
         al_size payload_written = 0u;
         status = al_wire_proposal_encode(
             &wire, (al_bytes_mut){ payload, payload_size }, &payload_written);
         if (status == AL_OK) {
-            (void)al_p2p_relay_consensus(
+            al_size relayed = al_p2p_relay_consensus(
                 &daemon->p2p, AL_WIRE_PROPOSAL,
                 al_bytes_make(payload, payload_written), NULL);
+            (void)relayed;
             status = daemon_consensus_prevote(daemon);
         }
         free(payload);
@@ -805,7 +815,8 @@ static al_status daemon_produce_block(al_daemon *daemon) {
         }
     }
     if (!daemon->consensus_ready) {
-        (void)al_p2p_relay_block(&daemon->p2p, encoded, NULL);
+        al_size relayed = al_p2p_relay_block(&daemon->p2p, encoded, NULL);
+        (void)relayed;
     }
 
     char message[160];
@@ -1486,7 +1497,8 @@ static void daemon_dial_bootstraps(al_daemon *daemon) {
             continue;
         }
         /* Already-connected endpoints fail harmlessly inside dial. */
-        (void)al_p2p_dial(&daemon->p2p, host, port);
+        al_status dial_status = al_p2p_dial(&daemon->p2p, host, port);
+        (void)dial_status;
     }
 }
 
@@ -1740,6 +1752,15 @@ static al_bool daemon_on_consensus(void *userdata, al_wire_type type,
         return daemon_on_proposal(daemon, encoded);
     case AL_WIRE_VOTE:
         return daemon_on_vote(daemon, encoded);
+    case AL_WIRE_HELLO:
+    case AL_WIRE_PING:
+    case AL_WIRE_PONG:
+    case AL_WIRE_TX:
+    case AL_WIRE_BLOCK:
+    case AL_WIRE_GET_BLOCKS:
+    case AL_WIRE_BLOCKS:
+    case AL_WIRE_FINALITY:
+    case AL_WIRE_TYPE_SENTINEL:
     default:
         return AL_FALSE;
     }

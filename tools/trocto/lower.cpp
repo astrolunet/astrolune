@@ -231,14 +231,16 @@ private:
             return;
         }
         const std::string& prefix = pit->second;
-        const uint32_t prefix_len = (uint32_t)prefix.size();
+        const uint32_t prefix_len = static_cast<uint32_t>(prefix.size());
         const uint32_t padded = (prefix_len + 7u) / 8u * 8u;
 
         /* Prefix words (zero-padded tail word included). */
         for (uint32_t i = 0u; i < padded; i += 8u) {
             uint64_t word = 0u;
             for (uint32_t b = 0u; b < 8u && i + b < prefix.size(); ++b)
-                word |= uint64_t(unsigned char(prefix[i + b])) << (b * 8u);
+                word |= static_cast<uint64_t>(
+                            static_cast<unsigned char>(prefix[i + b]))
+                        << (b * 8u);
             push(fn, word, line);
             push(fn, kScratchA + i, line);
             emit(fn, Opcode::Store64, line);
@@ -253,7 +255,7 @@ private:
         }
 
         push(fn, kScratchA, line);                          /* data     */
-        push(fn, (uint64_t)prefix_len + 32u, line);         /* length   */
+        push(fn, static_cast<uint64_t>(prefix_len) + 32u, line); /* length */
         push(fn, kKeySlot, line);                           /* out      */
         push(fn, 0u, line);                                 /* tag      */
         push_host(fn, Host::HashTagged, line);
@@ -268,13 +270,15 @@ private:
             return;
         }
         const std::string& prefix = pit->second;
-        const uint32_t prefix_len = (uint32_t)prefix.size();
+        const uint32_t prefix_len = static_cast<uint32_t>(prefix.size());
         const uint32_t padded = (prefix_len + 7u) / 8u * 8u;
 
         for (uint32_t i = 0u; i < padded; i += 8u) {
             uint64_t word = 0u;
             for (uint32_t b = 0u; b < 8u && i + b < prefix.size(); ++b)
-                word |= uint64_t(unsigned char(prefix[i + b])) << (b * 8u);
+                word |= static_cast<uint64_t>(
+                            static_cast<unsigned char>(prefix[i + b]))
+                        << (b * 8u);
             push(fn, word, line);
             push(fn, kScratchA + i, line);
             emit(fn, Opcode::Store64, line);
@@ -286,7 +290,7 @@ private:
         emit(fn, Opcode::Store64, line);
 
         push(fn, kScratchA, line);                          /* data     */
-        push(fn, (uint64_t)prefix_len + 8u, line);          /* length   */
+        push(fn, static_cast<uint64_t>(prefix_len) + 8u, line); /* length */
         push(fn, kKeySlot, line);                           /* out      */
         push(fn, 0u, line);                                 /* tag      */
         push_host(fn, Host::HashTagged, line);

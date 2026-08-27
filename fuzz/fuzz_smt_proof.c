@@ -7,8 +7,10 @@ int LLVMFuzzerTestOneInput(const al_u8 *data, al_size size) {
     data = fuzz_normalize(data, size, &normalized_size, &allocation);
     al_hash256 siblings[AL_STATE_TREE_DEPTH];
     al_smt_proof proof;
-    (void)al_smt_proof_decode(al_bytes_make(data, normalized_size), siblings,
-                              AL_COUNTOF(siblings), &proof);
+    al_status status = al_smt_proof_decode(
+        al_bytes_make(data, normalized_size), siblings, AL_COUNTOF(siblings),
+        &proof);
+    (void)status;
     free(allocation);
     return 0;
 }

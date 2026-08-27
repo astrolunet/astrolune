@@ -246,7 +246,8 @@ al_status al_consensus_vote_decode(al_bytes encoded, al_consensus_vote *out) {
     out->chain_id = al_reader_u32(&reader);
     out->height = al_reader_u64(&reader);
     out->round = al_reader_u32(&reader);
-    out->phase = (al_consensus_phase)al_reader_u8(&reader);
+    al_u8 phase = al_reader_u8(&reader);
+    out->phase = (al_consensus_phase)phase;
     al_reader_hash(&reader, &out->block_hash);
     al_reader_hash(&reader, &out->committee_hash);
     al_reader_bytes(&reader, out->voter.bytes, AL_PUBKEY_SIZE);

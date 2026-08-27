@@ -9,6 +9,7 @@
 /* winsock2.h must precede windows.h; net.h already ordered that correctly. */
 #  include <windows.h>
 #else
+#  include <arpa/inet.h>
 #  include <errno.h>
 #  include <fcntl.h>
 #  include <netdb.h>
@@ -59,9 +60,11 @@ static al_bool would_block(int error) {
 #if defined(AL_OS_WINDOWS)
     return error == WSAEWOULDBLOCK || error == WSAEINPROGRESS ? AL_TRUE : AL_FALSE;
 #else
-    return error == EAGAIN || error == EWOULDBLOCK || error == EINPROGRESS
-               ? AL_TRUE
-               : AL_FALSE;
+    if (error == EAGAIN || error == EINPROGRESS) return AL_TRUE;
+#  if EWOULDBLOCK != EAGAIN
+    if (error == EWOULDBLOCK) return AL_TRUE;
+#  endif
+    return AL_FALSE;
 #endif
 }
 
@@ -104,7 +107,11 @@ static al_status resolve_endpoint(const char *host, al_u16 port,
         result == NULL) {
         return AL_ERR_NOT_FOUND;
     }
-    *out = *(const struct sockaddr_in *)result->ai_addr;
+    if (result->ai_addrlen < sizeof(*out)) {
+        freeaddrinfo(result);
+        return AL_ERR_MALFORMED;
+    }
+    memcpy(out, result->ai_addr, sizeof(*out));
     out->sin_port = htons((unsigned short)port);
     freeaddrinfo(result);
     return AL_OK;
@@ -334,21 +341,15 @@ al_bool al_net_set_contains(const al_net_set *set, al_socket s) {
     return FD_ISSET(s.handle, &set->native) ? AL_TRUE : AL_FALSE;
 }
 
-int al_net_select(const al_net_set *readable, const al_net_set *writable,
+int al_net_select(al_net_set *readable, al_net_set *writable,
                   al_u32 timeout_ms) {
-    /* select() mutates its sets, so hand it copies and keep the caller's view
-     * valid for the al_net_set_contains checks afterwards. */
-    fd_set read_copy;
-    fd_set write_copy;
     fd_set *read_arg = NULL;
     fd_set *write_arg = NULL;
     if (readable != NULL) {
-        read_copy = readable->native;
-        read_arg = &read_copy;
+        read_arg = &readable->native;
     }
     if (writable != NULL) {
-        write_copy = writable->native;
-        write_arg = &write_copy;
+        write_arg = &writable->native;
     }
 
     struct timeval timeout;

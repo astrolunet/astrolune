@@ -50,7 +50,7 @@ else()
       -Wundef
       -Wwrite-strings
       -Wpointer-arith
-      -Wswitch-enum
+      $<$<COMPILE_LANGUAGE:C>:-Wswitch-enum>
       -Wvla
       $<$<COMPILE_LANGUAGE:C>:-Wstrict-prototypes>
       $<$<COMPILE_LANGUAGE:C>:-Wmissing-prototypes>

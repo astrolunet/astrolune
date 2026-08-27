@@ -61,6 +61,7 @@ al_bytes al_bytes_slice(al_bytes b, al_size offset, al_size len) {
     if (offset > b.len || len > b.len - offset) {
         return al_bytes_empty();
     }
+    if (len == 0u) return al_bytes_empty();
     return al_bytes_make(b.data + offset, len);
 }
 
@@ -382,11 +383,15 @@ al_status al_hex_decode(const char *in, void *out, al_size out_cap,
 }
 
 void al_hash_to_hex(const al_hash256 *h, char out[AL_HASH_HEX_SIZE]) {
-    (void)al_hex_encode(al_bytes_make(h->bytes, AL_HASH_SIZE), out,
-                        AL_HASH_HEX_SIZE);
+    al_status status = al_hex_encode(al_bytes_make(h->bytes, AL_HASH_SIZE), out,
+                                     AL_HASH_HEX_SIZE);
+    AL_ASSERT(status == AL_OK);
+    (void)status;
 }
 
 void al_address_to_hex(const al_address *a, char out[AL_ADDRESS_HEX_SIZE]) {
-    (void)al_hex_encode(al_bytes_make(a->bytes, AL_ADDRESS_SIZE), out,
-                        AL_ADDRESS_HEX_SIZE);
+    al_status status = al_hex_encode(
+        al_bytes_make(a->bytes, AL_ADDRESS_SIZE), out, AL_ADDRESS_HEX_SIZE);
+    AL_ASSERT(status == AL_OK);
+    (void)status;
 }
