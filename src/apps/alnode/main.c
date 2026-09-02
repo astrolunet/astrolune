@@ -9,8 +9,6 @@
 #include <string.h>
 
 /* Forward declaration from daemon.c */
-void alnode_install_signal_handlers(void);
-
 static void print_usage(const char *program) {
     (void)fprintf(stderr,
         "usage:\n"

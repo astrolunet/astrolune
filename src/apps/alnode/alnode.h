@@ -151,5 +151,6 @@ al_bool parse_endpoint_option(const char *text, char *host_storage,
                               al_size capacity, const char **host,
                               al_u16 *port);
 int     command_run(const run_options *options);
+void    alnode_install_signal_handlers(void);
 
 #endif
