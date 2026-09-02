@@ -101,7 +101,7 @@ astrolune_add_core_library(al_vm
 
 astrolune_add_core_library(al_tx
     SOURCES tx/tx.c
-    DEPS al_base al_crypto al_state al_vm
+    DEPS al_base al_crypto al_state al_vm al_potb
 )
 
 astrolune_add_core_library(al_block

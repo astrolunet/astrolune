@@ -33,7 +33,7 @@ AL_EXTERN_C_BEGIN
  * -------------------------------------------------------------------------- */
 
 /* Maximum encoded size of a validator record key. */
-#define AL_VALIDATOR_KEY_MAX 64u
+#define AL_VALIDATOR_KEY_MAX 96u
 
 /* Write "validators:<pubkey-hex>" into buf. Returns bytes written. */
 al_size al_validator_storage_key(const al_pubkey *pk, char *buf, al_size cap);

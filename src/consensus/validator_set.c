@@ -20,16 +20,20 @@
 
 al_size al_validator_storage_key(const al_pubkey *pk, char *buf, al_size cap) {
     char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
-    (void)al_hex_encode(al_bytes_make(pk->bytes, AL_PUBKEY_SIZE), pk_hex,
-                        sizeof(pk_hex));
+    if (al_hex_encode(al_bytes_make(pk->bytes, AL_PUBKEY_SIZE), pk_hex,
+                      sizeof(pk_hex)) != AL_OK) {
+        return 0u;
+    }
     return (al_size)snprintf(buf, cap, "validators:%s", pk_hex);
 }
 
 al_size al_validator_registration_height_key(const al_pubkey *pk, char *buf,
                                              al_size cap) {
     char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
-    (void)al_hex_encode(al_bytes_make(pk->bytes, AL_PUBKEY_SIZE), pk_hex,
-                        sizeof(pk_hex));
+    if (al_hex_encode(al_bytes_make(pk->bytes, AL_PUBKEY_SIZE), pk_hex,
+                      sizeof(pk_hex)) != AL_OK) {
+        return 0u;
+    }
     return (al_size)snprintf(buf, cap, "registration_height:%s", pk_hex);
 }
 

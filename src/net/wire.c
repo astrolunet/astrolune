@@ -274,7 +274,8 @@ al_status al_wire_evidence_decode(al_bytes payload, al_wire_evidence *out) {
     al_memzero(out, sizeof(*out));
     al_reader reader;
     al_reader_init(&reader, payload);
-    out->evidence.kind = (al_evidence_kind)al_reader_u16(&reader);
+    al_u16 kind = al_reader_u16(&reader);
+    out->evidence.kind = (al_evidence_kind)kind;
     out->evidence.chain_id = al_reader_u32(&reader);
     out->evidence.height = al_reader_u64(&reader);
     out->evidence.round = al_reader_u32(&reader);

@@ -187,7 +187,8 @@ al_status al_evidence_decode(al_bytes encoded, al_evidence *out) {
     al_reader_init(&reader, encoded);
     al_memzero(out, sizeof(*out));
     
-    out->kind = (al_evidence_kind)al_reader_u16(&reader);
+    al_u16 kind = al_reader_u16(&reader);
+    out->kind = (al_evidence_kind)kind;
     out->chain_id = al_reader_u32(&reader);
     out->height = al_reader_u64(&reader);
     out->round = al_reader_u32(&reader);
