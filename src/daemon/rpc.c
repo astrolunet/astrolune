@@ -135,9 +135,11 @@ static al_status rpc_transfer(al_daemon *daemon, const al_json_value *request,
         return step;
     }
     if (daemon->p2p_ready) {
-        (void)al_p2p_relay_transaction(&daemon->p2p,
-                                       al_bytes_make(encoded, encoded_size),
-                                       NULL);
+        if (al_p2p_relay_transaction(&daemon->p2p,
+                                      al_bytes_make(encoded, encoded_size),
+                                      NULL) == 0u) {
+            AL_LOG_DEBUG("rpc", "transaction had no peer relay target");
+        }
     }
 
     al_json_writer_raw(body, "{\"hash\":");
@@ -375,9 +377,11 @@ al_status daemon_rpc_handler(void *userdata,
                 &daemon->node, al_bytes_make(decoded, decoded_len), &hash);
             if (status == AL_OK) {
                 if (daemon->p2p_ready) {
-                    (void)al_p2p_relay_transaction(
-                        &daemon->p2p,
-                        al_bytes_make(decoded, decoded_len), NULL);
+                    if (al_p2p_relay_transaction(
+                            &daemon->p2p,
+                            al_bytes_make(decoded, decoded_len), NULL) == 0u) {
+                        AL_LOG_DEBUG("rpc", "transaction had no peer relay target");
+                    }
                 }
                 al_json_writer_raw(body, "{\"hash\":");
                 al_json_writer_hex(body,

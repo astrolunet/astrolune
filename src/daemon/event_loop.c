@@ -289,13 +289,17 @@ al_bool daemon_on_evidence(al_daemon *daemon, al_bytes encoded) {
                     if (daemon->node.has_head) {
                         now_day = daemon->node.head.protocol_day;
                     }
-                    (void)al_evidence_process(&daemon->genesis.potb, record,
-                                              &wire.evidence, now_day);
+                    if (al_evidence_process(&daemon->genesis.potb, record,
+                                             &wire.evidence, now_day) != AL_OK) {
+                        return AL_FALSE;
+                    }
                     char message[160];
                     char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
-                    (void)al_hex_encode(al_bytes_make(wire.evidence.vote1.voter.bytes,
-                                                AL_PUBKEY_SIZE),
-                                  pk_hex, sizeof(pk_hex));
+                    if (al_hex_encode(al_bytes_make(wire.evidence.vote1.voter.bytes,
+                                                    AL_PUBKEY_SIZE),
+                                      pk_hex, sizeof(pk_hex)) != AL_OK) {
+                        return AL_FALSE;
+                    }
                     int evidence_msg_len = snprintf(message, sizeof(message),
                                    "evidence processed: double-sign by %s at height %llu",
                                    pk_hex,
@@ -322,6 +326,8 @@ al_bool daemon_on_consensus(void *userdata, al_wire_type type,
         return daemon_on_vote(daemon, encoded);
     case AL_WIRE_EVIDENCE:
         return daemon_on_evidence(daemon, encoded);
+    case AL_WIRE_KEY_EXCHANGE:
+        return AL_FALSE;
     case AL_WIRE_HELLO:
     case AL_WIRE_PING:
     case AL_WIRE_PONG:

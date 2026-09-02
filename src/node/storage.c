@@ -1613,6 +1613,8 @@ al_status al_node_storage_import_snapshot(al_node_storage *storage,
     if (in == NULL) return AL_ERR_NOT_FOUND;
 
     al_status status = AL_OK;
+    al_hash256 snap_genesis;
+    al_height snap_height = 0u;
 
     /* Read header. */
     al_u8 header[4u + 4u + AL_HASH_SIZE + 8u + AL_HASH_SIZE];
@@ -1625,13 +1627,12 @@ al_status al_node_storage_import_snapshot(al_node_storage *storage,
         status = AL_ERR_STATE_CORRUPT;
         goto done;
     }
-    al_hash256 snap_genesis;
     memcpy(snap_genesis.bytes, header + 8u, AL_HASH_SIZE);
     if (!al_hash_eq(&snap_genesis, &impl->genesis_hash)) {
         status = AL_ERR_CONSENSUS_VIOLATION;
         goto done;
     }
-    al_height snap_height = al_load_le64(header + 8u + AL_HASH_SIZE);
+    snap_height = al_load_le64(header + 8u + AL_HASH_SIZE);
 
     /* Read block payload size (varint) then block bytes. */
     {
@@ -1658,7 +1659,9 @@ al_status al_node_storage_import_snapshot(al_node_storage *storage,
         status = al_node_storage_commit_block(
             storage, state, al_bytes_make(block_data, (al_size)block_size));
         if (status != AL_OK) {
-            (void)al_state_snapshot_restore(state, state_snap);
+            if (al_state_snapshot_restore(state, state_snap) != AL_OK) {
+                status = AL_ERR_STATE_CORRUPT;
+            }
             free(block_data);
             goto done;
         }
@@ -1720,7 +1723,9 @@ al_status al_node_storage_import_snapshot(al_node_storage *storage,
                 al_bytes_make(block_buf, block_size),
                 al_bytes_make(cert_data, (al_size)cert_size));
             if (status != AL_OK) {
-                (void)al_state_snapshot_restore(state, state_snap);
+                if (al_state_snapshot_restore(state, state_snap) != AL_OK) {
+                    status = AL_ERR_STATE_CORRUPT;
+                }
             }
             free(cert_data);
             free(block_buf);
