@@ -205,8 +205,7 @@ al_status al_kx_shared(const al_kx_keypair *local,
         return AL_ERR_INVALID_ARG;
     }
     AL_TRY(al_sodium_ready());
-    if (crypto_kx_shared_key_client(shared_out, local->pk, local->sk,
-                                    remote_pk) != 0) {
+    if (crypto_scalarmult_curve25519(shared_out, local->sk, remote_pk) != 0) {
         return AL_ERR_UNSUPPORTED;
     }
     return AL_OK;

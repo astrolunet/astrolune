@@ -8,6 +8,7 @@
 #include "astrolune/potb.h"
 
 #include "internal/common.h"
+#include "score_internal.h"
 
 /* --------------------------------------------------------------------------
  * Parameters
