@@ -263,7 +263,10 @@ void handle_hello(al_p2p *network, al_p2p_peer *peer,
         al_writer_init(&writer, buf, sizeof(buf));
         al_wire_key_exchange_encode(&writer, &kx);
         al_size kx_len = al_writer_len(&writer);
-        (void)al_writer_finish(&writer);
+        if (al_writer_finish(&writer) != AL_OK) {
+            peer_close(network, (al_size)(peer - network->peers));
+            return;
+        }
         (void)peer_send_frame(peer, AL_WIRE_KEY_EXCHANGE, buf, kx_len);
     }
 

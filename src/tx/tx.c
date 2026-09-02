@@ -851,9 +851,9 @@ static al_status tx_execute_body(const al_transaction *tx, al_state_txn *txn,
                     txn, &evidence.vote1.voter, &vrecord);
                 if (vstatus == AL_OK) {
                     al_u32 now_day = context->protocol_day;
-                    (void)al_evidence_process(context->potb_params,
-                                              &vrecord, &evidence, now_day);
-                    (void)al_validator_set_store(txn, &vrecord);
+                    AL_TRY(al_evidence_process(context->potb_params,
+                                                &vrecord, &evidence, now_day));
+                    AL_TRY(al_validator_set_store(txn, &vrecord));
                 }
             }
         }
@@ -909,9 +909,9 @@ static al_status tx_execute_body(const al_transaction *tx, al_state_txn *txn,
             const char *prefix = (tx->body.potb.operation == AL_POTB_SEED_COMMIT)
                                      ? "seed_commit:" : "seed_reveal:";
             char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
-            (void)al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
-                                              AL_PUBKEY_SIZE),
-                                pk_hex, sizeof(pk_hex));
+            AL_TRY(al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
+                                               AL_PUBKEY_SIZE),
+                                 pk_hex, sizeof(pk_hex)));
             (void)snprintf(seed_key_buf, sizeof(seed_key_buf),
                            "%s%s:%u", prefix, pk_hex, epoch);
             al_bytes seed_key = al_bytes_make((const al_u8 *)seed_key_buf,
@@ -924,9 +924,9 @@ static al_status tx_execute_body(const al_transaction *tx, al_state_txn *txn,
             /* Store the committee appeal vote in system storage. */
             char vote_key_buf[128];
             char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
-            (void)al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
-                                              AL_PUBKEY_SIZE),
-                                pk_hex, sizeof(pk_hex));
+            AL_TRY(al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
+                                               AL_PUBKEY_SIZE),
+                                 pk_hex, sizeof(pk_hex)));
             (void)snprintf(vote_key_buf, sizeof(vote_key_buf),
                            "committee_vote:%s:%llu", pk_hex,
                            (unsigned long long)context->block_height);

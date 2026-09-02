@@ -292,15 +292,12 @@ al_status load_or_create_proposer(al_daemon *daemon) {
             free(contents);
             if (status != AL_OK) return status;
             
-            status = al_signer_new_from_hex(
-                (const char[]){
-                    seed[0], seed[1], seed[2], seed[3], seed[4], seed[5],
-                    seed[6], seed[7], seed[8], seed[9], seed[10], seed[11],
-                    seed[12], seed[13], seed[14], seed[15], seed[16], seed[17],
-                    seed[18], seed[19], seed[20], seed[21], seed[22], seed[23],
-                    seed[24], seed[25], seed[26], seed[27], seed[28], seed[29],
-                    seed[30], seed[31], '\0'
-                }, &daemon->signer);
+            char seed_hex[PROPOSER_SEED_SIZE * 2u + 1u];
+            status = al_hex_encode(al_bytes_make(seed, sizeof(seed)),
+                                   seed_hex, sizeof(seed_hex));
+            if (status == AL_OK) {
+                status = al_signer_new_from_hex(seed_hex, &daemon->signer);
+            }
             al_secure_zero(seed, sizeof(seed));
             if (status != AL_OK) return status;
             AL_TRY(al_signer_pubkey(daemon->signer, &daemon->proposer.pk));

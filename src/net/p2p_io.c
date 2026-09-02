@@ -67,7 +67,10 @@ void feed_bytes(al_p2p *network, al_size index, al_bytes chunk,
             al_writer_init(&hw, hdr, sizeof(hdr));
             al_wire_header_encode(&hw, (al_wire_type)peer->rx_type,
                                   (al_u32)peer->rx_buffer_cap);
-            (void)al_writer_finish(&hw);
+            if (al_writer_finish(&hw) != AL_OK) {
+                peer_close(network, index);
+                return;
+            }
 
             al_u8 *pt = (al_u8 *)malloc(peer->rx_buffer_cap);
             if (pt == NULL) {
