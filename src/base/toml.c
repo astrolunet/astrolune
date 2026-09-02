@@ -499,8 +499,14 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
                 al_toml_value *parent = resolve_dotted_path(&parser, root,
                                                             key_start, parent_len);
                 if (parent) {
-                    char *lk = toml_alloc_str(parser.alloc, leaf_key, leaf_len);
-                    table_add(&parser, parent, lk, val);
+                    char leaf[256];
+                    if (leaf_len >= sizeof(leaf)) {
+                        parser.status = AL_ERR_MALFORMED;
+                        break;
+                    }
+                    memcpy(leaf, leaf_key, leaf_len);
+                    leaf[leaf_len] = '\0';
+                    table_add(&parser, parent, leaf, val);
                 }
             } else {
                 char *k = toml_alloc_str(parser.alloc, key_start, full_key_len);
@@ -522,10 +528,25 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
 }
 
 void al_toml_free(al_toml_value *value) {
-    /* With the bump allocator, all memory is in blocks. Free them all. */
-    (void)value;
-    /* For a production parser we'd track blocks; for now, leak is acceptable
-     * because config files are parsed once at startup. */
+    if (value == NULL) return;
+
+    if (value->kind == AL_TOML_ARRAY) {
+        for (al_size i = 0u; i < value->count; ++i) {
+            al_toml_free(value->items[i]);
+        }
+        free(value->items);
+    } else if (value->kind == AL_TOML_TABLE) {
+        for (al_size i = 0u; i < value->length; ++i) {
+            free(value->keys[i]);
+            al_toml_free(value->values[i]);
+        }
+        free(value->keys);
+        free(value->values);
+    } else if (value->kind == AL_TOML_STRING) {
+        free(value->string);
+    }
+
+    free(value);
 }
 
 const al_toml_value *al_toml_get(const al_toml_value *table, const char *key) {

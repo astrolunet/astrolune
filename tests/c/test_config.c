@@ -41,18 +41,31 @@ typedef struct test_config {
     al_bool produce_empty_blocks;
     const char *log_level;
     al_bool require_encrypted_transport;
+    char owned_strings[64][256];
+    al_size owned_string_count;
 } test_config;
 
 /* ------------------------------------------------------------------ */
 /* Config helpers (copied from daemon/config.c for test isolation)      */
 /* ------------------------------------------------------------------ */
 
-static void cfg_set_string(const al_toml_value *tbl, const char *key,
-                           const char **field) {
+static char *cfg_copy_string(test_config *config, const char *value) {
+    al_size len = strlen(value);
+    if (len >= sizeof(config->owned_strings[0]) ||
+        config->owned_string_count >= 64u) {
+        return NULL;
+    }
+    char *copy = config->owned_strings[config->owned_string_count++];
+    memcpy(copy, value, len + 1u);
+    return copy;
+}
+
+static void cfg_set_string(test_config *config, const al_toml_value *tbl,
+                           const char *key, const char **field) {
     if (*field != NULL) return;
     const char *val;
     if (al_toml_string(tbl, key, &val))
-        *field = val;
+        *field = cfg_copy_string(config, val);
 }
 
 static void cfg_set_port(const al_toml_value *tbl, const char *key,
@@ -88,14 +101,14 @@ static al_status test_config_load_memory(const char *text, al_size len,
 
     const al_toml_value *node = al_toml_get(root, "node");
     if (node) {
-        cfg_set_string(node, "data_dir", &config->data_dir);
+        cfg_set_string(config, node, "data_dir", &config->data_dir);
         cfg_set_bool(node, "allow_insecure_crypto",
                      &config->allow_insecure_crypto);
     }
 
     const al_toml_value *p2p = al_toml_get(root, "p2p");
     if (p2p) {
-        cfg_set_string(p2p, "host", &config->p2p_host);
+        cfg_set_string(config, p2p, "host", &config->p2p_host);
         cfg_set_port(p2p, "port", &config->p2p_port, &config->enable_p2p);
         cfg_set_bool(p2p, "enabled", &config->enable_p2p);
         cfg_set_bool(p2p, "require_encryption",
@@ -104,11 +117,11 @@ static al_status test_config_load_memory(const char *text, al_size len,
 
     const al_toml_value *rpc = al_toml_get(root, "rpc");
     if (rpc) {
-        cfg_set_string(rpc, "host", &config->rpc_host);
+        cfg_set_string(config, rpc, "host", &config->rpc_host);
         cfg_set_port(rpc, "port", &config->rpc_port, &config->enable_rpc);
         cfg_set_bool(rpc, "enabled", &config->enable_rpc);
         cfg_set_bool(rpc, "unsafe_methods", &config->enable_unsafe_rpc);
-        cfg_set_string(rpc, "token", &config->rpc_token);
+        cfg_set_string(config, rpc, "token", &config->rpc_token);
     }
 
     const al_toml_value *blocks = al_toml_get(root, "blocks");
@@ -119,13 +132,13 @@ static al_status test_config_load_memory(const char *text, al_size len,
 
     const al_toml_value *proposer = al_toml_get(root, "proposer");
     if (proposer) {
-        cfg_set_string(proposer, "seed", &config->proposer_seed);
-        cfg_set_string(proposer, "passphrase", &config->proposer_passphrase);
+        cfg_set_string(config, proposer, "seed", &config->proposer_seed);
+        cfg_set_string(config, proposer, "passphrase", &config->proposer_passphrase);
     }
 
     const al_toml_value *log = al_toml_get(root, "log");
     if (log) {
-        cfg_set_string(log, "level", &config->log_level);
+        cfg_set_string(config, log, "level", &config->log_level);
     }
 
     const al_toml_value *consensus = al_toml_get(root, "consensus");
@@ -141,12 +154,13 @@ static al_status test_config_load_memory(const char *text, al_size len,
                 const al_toml_value *item = validators->items[i];
                 if (item && item->kind == AL_TOML_STRING && item->string) {
                     config->validators[config->validator_count++] =
-                        item->string;
+                        cfg_copy_string(config, item->string);
                 }
             }
         }
     }
 
+    al_toml_free(root);
     return AL_OK;
 }
 
