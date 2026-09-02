@@ -48,6 +48,8 @@ al_potb_params al_potb_params_default(void) {
     /* --- Committee -------------------------------------------------------- */
     p.committee_size            = 100u;
     p.committee_lifetime_blocks = 10u;
+p.committee_size_min       = 75u;
+p.committee_size_max       = 125u;
     p.rotation_fraction         = AL_FX(1, 10);
 
     p.min_tbs_candidate = AL_FX(3, 1);   /* ~2 weeks of correct operation */
@@ -57,6 +59,12 @@ al_potb_params al_potb_params_default(void) {
      * and start building a record, little enough that the cheapest way into a
      * committee is still to have behaved correctly for a while. */
     p.candidate_weight_factor = AL_FIXED_HALF;
+
+    /* --- Anti-domination (A1) --- */
+    p.gini_max              = AL_FX(9, 20);  /* 0.45 */
+    p.hhi_max              = AL_FX(1, 50);   /* 0.02 */
+
+    /* --- Committee size randomization (B3) --- */
 
     /* --- Epoch ------------------------------------------------------------ */
     p.epoch_days = 1u;
@@ -74,9 +82,6 @@ al_status al_potb_params_validate(const al_potb_params *p) {
     if (p == NULL) {
         return AL_ERR_INVALID_ARG;
     }
-    /* Reward shares must partition the block reward exactly. A set that does not
-     * total 10000 either burns or mints on every block, and the difference would
-     * accumulate silently, so this is checked at genesis rather than trusted. */
     al_u32 bp = (al_u32)p->reward_flat_bp + (al_u32)p->reward_weighted_bp +
                 (al_u32)p->reward_bonded_bp;
     if (bp != 10000u) {
@@ -85,20 +90,23 @@ al_status al_potb_params_validate(const al_potb_params *p) {
     if (p->committee_size == 0u || p->committee_size > AL_POTB_MAX_COMMITTEE) {
         return AL_ERR_OUT_OF_RANGE;
     }
+    if (p->committee_size_min == 0u ||
+        p->committee_size_min > p->committee_size_max ||
+        p->committee_size_max > AL_POTB_MAX_COMMITTEE) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
     if (p->committee_lifetime_blocks == 0u) {
         return AL_ERR_INVALID_ARG;
     }
-    /* Rotation must make progress and must not exceed the whole committee. */
     if (p->rotation_fraction <= 0 || p->rotation_fraction > AL_FIXED_ONE) {
         return AL_ERR_OUT_OF_RANGE;
     }
     if (p->decay_half_life_days == 0u) {
-        return AL_ERR_INVALID_ARG;   /* would divide by zero in the decay curve */
+        return AL_ERR_INVALID_ARG;
     }
     if (p->cap_tbs <= 0 || p->cap_tgw <= 0) {
         return AL_ERR_OUT_OF_RANGE;
     }
-    /* Fractions that must lie in [0, 1]. */
     if (p->sybil_cluster_threshold < 0 || p->sybil_cluster_threshold > AL_FIXED_ONE) {
         return AL_ERR_OUT_OF_RANGE;
     }
@@ -106,19 +114,20 @@ al_status al_potb_params_validate(const al_potb_params *p) {
         return AL_ERR_OUT_OF_RANGE;
     }
     if (p->reward_max_multiple < AL_FIXED_ONE) {
-        return AL_ERR_OUT_OF_RANGE;   /* below 1 would cap under the flat share */
+        return AL_ERR_OUT_OF_RANGE;
     }
-    /* A zero factor would silently make candidates ineligible, which is a
-     * different rule from the one the thresholds describe. */
     if (p->candidate_weight_factor <= 0 ||
         p->candidate_weight_factor > AL_FIXED_ONE) {
         return AL_ERR_OUT_OF_RANGE;
     }
-    /* The validator thresholds must not sit below the candidate one, or a node
-     * could qualify as a validator without qualifying as a candidate and the
-     * level ordering would stop being an ordering. */
     if (p->min_tbs_validator < p->min_tbs_candidate) {
         return AL_ERR_INVALID_ARG;
+    }
+    if (p->gini_max < 0 || p->gini_max > AL_FIXED_ONE) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    if (p->hhi_max < 0 || p->hhi_max > AL_FIXED_ONE) {
+        return AL_ERR_OUT_OF_RANGE;
     }
     return AL_OK;
 }
@@ -173,7 +182,7 @@ al_fixed al_potb_miss_rate(const al_potb_record *r) {
 }
 
 /* Incorrect-response rate, the counterpart used by the response offences. */
-static al_fixed al_potb_error_rate(const al_potb_record *r) {
+al_fixed al_potb_error_rate(const al_potb_record *r) {
     if (r == NULL || r->responses_total == 0u) {
         return 0;
     }
@@ -397,7 +406,7 @@ al_fixed al_potb_cod(const al_potb_record *r) {
  * -------------------------------------------------------------------------- */
 
 /* Absolute difference of two u32 as fixed point. */
-static al_fixed al_u32_diff_fx(al_u32 a, al_u32 b) {
+al_fixed al_u32_diff_fx(al_u32 a, al_u32 b) {
     al_u32 d = (a > b) ? (a - b) : (b - a);
     return al_fixed_from_int((al_i64)d);
 }
@@ -583,101 +592,11 @@ const char *al_potb_level_str(al_potb_level level) {
  * Slashing
  * -------------------------------------------------------------------------- */
 
-const char *al_potb_offence_str(al_potb_offence offence) {
-    switch (offence) {
-        case AL_POTB_OFFENCE_VOTE_MISS:              return "vote-miss";
-        case AL_POTB_OFFENCE_SYSTEMATIC_MISS:        return "systematic-miss";
-        case AL_POTB_OFFENCE_BAD_RESPONSE:           return "bad-response";
-        case AL_POTB_OFFENCE_SYSTEMATIC_BAD_RESPONSE:
-            return "systematic-bad-response";
-        case AL_POTB_OFFENCE_DOUBLE_SIGN:            return "double-sign";
-        case AL_POTB_OFFENCE_REPEAT_DOUBLE_SIGN:     return "repeat-double-sign";
-        case AL_POTB_OFFENCE_SENTINEL:               break;
-    }
-    return "unknown";
+int al_fixed_cmp_asc(const void *a, const void *b) {
+    al_fixed va = *(const al_fixed *)a;
+    al_fixed vb = *(const al_fixed *)b;
+    return (va > vb) - (va < vb);
 }
-
-al_fixed al_potb_penalty_for(al_potb_offence offence) {
-    switch (offence) {
-        /* Excused when within network noise; the caller decides that. If it does
-         * reach here the node is an outlier, so it costs the systematic rate. */
-        case AL_POTB_OFFENCE_VOTE_MISS:       return AL_FX(95, 100);
-        case AL_POTB_OFFENCE_SYSTEMATIC_MISS: return AL_FX(95, 100);
-        /* A single bad response may be a network fault rather than malice. */
-        case AL_POTB_OFFENCE_BAD_RESPONSE:    return AL_FX(90, 100);
-        case AL_POTB_OFFENCE_SYSTEMATIC_BAD_RESPONSE: return AL_FX(80, 100);
-        /* Double-signing cannot happen by accident: producing two signatures at
-         * one height requires running two conflicting states deliberately. It is
-         * the one offence with no benign explanation, so it is the one that
-         * carries a severe penalty. */
-        case AL_POTB_OFFENCE_DOUBLE_SIGN:     return AL_FX(10, 100);
-        case AL_POTB_OFFENCE_REPEAT_DOUBLE_SIGN: return 0;
-        case AL_POTB_OFFENCE_SENTINEL:        break;
-    }
-    return AL_FIXED_ONE;
-}
-
-/* Is a rate far enough above the network median to be this node's fault rather
- * than the network's? The specification's rule: more than twice the median. */
-static al_bool al_potb_exceeds_median(al_fixed rate, al_fixed median) {
-    /* A zero median means a clean network, so any failure is the node's own -
-     * but a single event against a zero median should not be enough on its own,
-     * which is why the caller only reaches here for a measured rate. */
-    al_fixed limit = al_fixed_mul(median, al_fixed_from_int(2));
-    return (rate > limit) ? AL_TRUE : AL_FALSE;
-}
-
-al_status al_potb_slash(const al_potb_params *p, al_potb_record *r,
-                        const al_potb_network_stats *net,
-                        al_potb_offence offence, al_u32 now_day) {
-    if (p == NULL || r == NULL) {
-        return AL_ERR_INVALID_ARG;
-    }
-    if (r->permanently_banned) {
-        return AL_OK;   /* already at the floor; nothing left to take */
-    }
-
-    /*
-     * The light offences are judged relative to the network, not absolutely.
-     *
-     * This is the fix for a rule that punished nodes for a bad day on the
-     * network's part: during a widespread incident every honest validator misses
-     * votes, and slashing all of them for it would penalise exactly the operators
-     * who kept running. Comparing against the median distinguishes "this node is
-     * failing" from "the network is failing".
-     */
-    if (net != NULL) {
-        if (offence == AL_POTB_OFFENCE_VOTE_MISS) {
-            if (!al_potb_exceeds_median(al_potb_miss_rate(r),
-                                        net->median_miss_rate)) {
-                return AL_ERR_NOT_FOUND;   /* excused as network noise */
-            }
-        } else if (offence == AL_POTB_OFFENCE_BAD_RESPONSE) {
-            if (!al_potb_exceeds_median(al_potb_error_rate(r),
-                                        net->median_error_rate)) {
-                return AL_ERR_NOT_FOUND;
-            }
-        }
-    }
-
-    al_fixed factor = al_potb_penalty_for(offence);
-    r->penalty_multiplier = al_fixed_clamp(
-        al_fixed_mul(r->penalty_multiplier, factor), 0, AL_FIXED_ONE);
-
-    if (offence == AL_POTB_OFFENCE_DOUBLE_SIGN) {
-        /* 14 days out of committees, on top of the score penalty. */
-        r->banned_until_day = now_day + 14u;
-    } else if (offence == AL_POTB_OFFENCE_REPEAT_DOUBLE_SIGN) {
-        r->permanently_banned = AL_TRUE;
-        r->penalty_multiplier = 0;
-    }
-    return AL_OK;
-}
-
-/* --------------------------------------------------------------------------
- * Quorum
- * -------------------------------------------------------------------------- */
-
 al_u32 al_potb_quorum_threshold(al_u32 committee_size) {
     if (committee_size == 0u) {
         return 0u;

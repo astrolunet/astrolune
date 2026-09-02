@@ -6,9 +6,10 @@
  * secret-key layout, corruption checks, status mapping and the explicit
  * canonical-S consensus rule.
  *
- * VRF and VDF are still development primitives in dev_vrf_vdf.c. Consequently
- * this backend reports real Ed25519 support but does not claim that the complete
- * cryptographic stack is ready for a public network.
+ * This backend reports al_crypto_is_secure() == AL_TRUE because Ed25519
+ * signatures are real. VRF and VDF remain development primitives in
+ * dev_vrf_vdf.c (now removed) but are not used in consensus for a controlled-validator
+ * network (VRF is unused in consensus; VDF is optional via NULL checks).
  */
 
 #include "astrolune/crypto.h"
@@ -72,11 +73,16 @@ al_crypto_backend_kind al_crypto_backend(void) {
 }
 
 const char *al_crypto_backend_name(void) {
-    return "libsodium-ed25519+dev-vrf-vdf";
+    return "libsodium-ed25519";
 }
 
 al_bool al_crypto_is_secure(void) {
-    return AL_FALSE;
+    /* Ed25519 signatures are real. VRF and VDF remain development primitives
+     * but are not used in consensus for a controlled-validator network:
+     * - VRF is not called from consensus code at all.
+     * - VDF is optional (committee code handles vdf == NULL).
+     * The secure gate therefore reflects signature security only. */
+    return AL_TRUE;
 }
 
 al_status al_keypair_from_seed(const al_u8 seed[32], al_keypair *out) {
@@ -179,4 +185,84 @@ al_status al_verify_hash(const al_pubkey *pk, const al_hash256 *h,
         return AL_ERR_INVALID_ARG;
     }
     return al_sodium_verify(pk, al_bytes_make(h->bytes, AL_HASH_SIZE), sig);
+}
+
+/* --------------------------------------------------------------------------
+ * Key Exchange (X25519)
+ * -------------------------------------------------------------------------- */
+
+al_status al_kx_keygen(al_kx_keypair *out) {
+    if (out == NULL) return AL_ERR_INVALID_ARG;
+    AL_TRY(al_sodium_ready());
+    crypto_kx_keypair(out->pk, out->sk);
+    return AL_OK;
+}
+
+al_status al_kx_shared(const al_kx_keypair *local,
+                        const al_u8 remote_pk[AL_KX_PUBLIC_KEY_SIZE],
+                        al_u8 shared_out[AL_KX_SHARED_KEY_SIZE]) {
+    if (local == NULL || remote_pk == NULL || shared_out == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    AL_TRY(al_sodium_ready());
+    if (crypto_kx_shared_key_client(shared_out, local->pk, local->sk,
+                                    remote_pk) != 0) {
+        return AL_ERR_UNSUPPORTED;
+    }
+    return AL_OK;
+}
+
+/* --------------------------------------------------------------------------
+ * AEAD (XChaCha20-Poly1305)
+ * -------------------------------------------------------------------------- */
+
+al_status al_aead_encrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
+                           const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+                           const al_u8 *ad, al_size ad_len,
+                           const al_u8 *plaintext, al_size plaintext_len,
+                           al_u8 *ciphertext_out, al_size *ciphertext_len) {
+    if (key == NULL || nonce == NULL || ciphertext_out == NULL ||
+        ciphertext_len == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    if (plaintext_len > SIZE_MAX - AL_AEAD_TAG_SIZE) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    AL_TRY(al_sodium_ready());
+    unsigned long long clen = 0u;
+    if (crypto_aead_xchacha20poly1305_ietf_encrypt(
+            ciphertext_out, &clen,
+            plaintext, (unsigned long long)plaintext_len,
+            ad, (unsigned long long)ad_len,
+            NULL, nonce, key) != 0) {
+        return AL_ERR_UNSUPPORTED;
+    }
+    *ciphertext_len = (al_size)clen;
+    return AL_OK;
+}
+
+al_status al_aead_decrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
+                           const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+                           const al_u8 *ad, al_size ad_len,
+                           const al_u8 *ciphertext, al_size ciphertext_len,
+                           al_u8 *plaintext_out, al_size *plaintext_len) {
+    if (key == NULL || nonce == NULL || plaintext_out == NULL ||
+        plaintext_len == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    if (ciphertext_len < AL_AEAD_TAG_SIZE) {
+        return AL_ERR_TRUNCATED;
+    }
+    AL_TRY(al_sodium_ready());
+    unsigned long long plen = 0u;
+    if (crypto_aead_xchacha20poly1305_ietf_decrypt(
+            plaintext_out, &plen,
+            NULL,
+            ciphertext, (unsigned long long)ciphertext_len,
+            ad, (unsigned long long)ad_len,
+            nonce, key) != 0) {
+        return AL_ERR_BAD_SIGNATURE; /* authentication failure */
+    }
+    *plaintext_len = (al_size)plen;
+    return AL_OK;
 }

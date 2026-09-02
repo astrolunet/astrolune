@@ -249,3 +249,60 @@ al_status al_wire_proposal_decode(al_bytes payload, al_wire_proposal *out) {
     out->block = al_reader_take(&reader, (al_size)length);
     return al_reader_finish(&reader);
 }
+
+/* --- EVIDENCE ------------------------------------------------------------- */
+
+void al_wire_evidence_encode(al_writer *writer, const al_wire_evidence *ev) {
+    al_writer_u16(writer, (al_u16)ev->evidence.kind);
+    al_writer_u32(writer, ev->evidence.chain_id);
+    al_writer_u64(writer, ev->evidence.height);
+    al_writer_u32(writer, ev->evidence.round);
+    al_writer_u8(writer, ev->evidence.vote1.phase);
+    al_writer_hash(writer, &ev->evidence.vote1.block_hash);
+    al_writer_hash(writer, &ev->evidence.vote1.committee_hash);
+    al_writer_raw(writer, ev->evidence.vote1.voter.bytes, AL_PUBKEY_SIZE);
+    al_writer_raw(writer, ev->evidence.vote1.signature.bytes, AL_SIGNATURE_SIZE);
+    al_writer_u8(writer, ev->evidence.vote2.phase);
+    al_writer_hash(writer, &ev->evidence.vote2.block_hash);
+    al_writer_hash(writer, &ev->evidence.vote2.committee_hash);
+    al_writer_raw(writer, ev->evidence.vote2.voter.bytes, AL_PUBKEY_SIZE);
+    al_writer_raw(writer, ev->evidence.vote2.signature.bytes, AL_SIGNATURE_SIZE);
+}
+
+al_status al_wire_evidence_decode(al_bytes payload, al_wire_evidence *out) {
+    if (out == NULL) return AL_ERR_INVALID_ARG;
+    al_memzero(out, sizeof(*out));
+    al_reader reader;
+    al_reader_init(&reader, payload);
+    out->evidence.kind = (al_evidence_kind)al_reader_u16(&reader);
+    out->evidence.chain_id = al_reader_u32(&reader);
+    out->evidence.height = al_reader_u64(&reader);
+    out->evidence.round = al_reader_u32(&reader);
+    out->evidence.vote1.phase = al_reader_u8(&reader);
+    al_reader_hash(&reader, &out->evidence.vote1.block_hash);
+    al_reader_hash(&reader, &out->evidence.vote1.committee_hash);
+    al_reader_bytes(&reader, out->evidence.vote1.voter.bytes, AL_PUBKEY_SIZE);
+    al_reader_bytes(&reader, out->evidence.vote1.signature.bytes, AL_SIGNATURE_SIZE);
+    out->evidence.vote2.phase = al_reader_u8(&reader);
+    al_reader_hash(&reader, &out->evidence.vote2.block_hash);
+    al_reader_hash(&reader, &out->evidence.vote2.committee_hash);
+    al_reader_bytes(&reader, out->evidence.vote2.voter.bytes, AL_PUBKEY_SIZE);
+    al_reader_bytes(&reader, out->evidence.vote2.signature.bytes, AL_SIGNATURE_SIZE);
+    return al_reader_finish(&reader);
+}
+
+/* --- KEY EXCHANGE ---------------------------------------------------------- */
+
+void al_wire_key_exchange_encode(al_writer *writer,
+                                 const al_wire_key_exchange *kx) {
+    al_writer_raw(writer, kx->ephemeral_pk, AL_KX_PUBLIC_KEY_SIZE);
+}
+
+al_status al_wire_key_exchange_decode(al_bytes payload,
+                                       al_wire_key_exchange *out) {
+    if (out == NULL) return AL_ERR_INVALID_ARG;
+    al_memzero(out, sizeof(*out));
+    if (payload.len < AL_KX_PUBLIC_KEY_SIZE) return AL_ERR_TRUNCATED;
+    al_memcpy(out->ephemeral_pk, payload.data, AL_KX_PUBLIC_KEY_SIZE);
+    return AL_OK;
+}

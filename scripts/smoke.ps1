@@ -101,22 +101,69 @@ $Genesis = Join-Path $Smoke "genesis.bin"
 & $Alnode init-genesis $Genesis 1337 "$AddrA=1000000000000000000" "$AddrB=5000000000000" 2>$null | Out-Null
 Check "genesis with allocations created" (Test-Path $Genesis)
 
-# --- Launch ----------------------------------------------------------------
+# --- Config files ----------------------------------------------------------
 
+$ConfigA = Join-Path $Smoke "nodeA-config.toml"
+$ConfigB = Join-Path $Smoke "nodeB-config.toml"
 $DirA = Join-Path $Smoke "nodeA"
 $DirB = Join-Path $Smoke "nodeB"
-$NodeBArgs = @('run', $Genesis, '--datadir', $DirB,
-    '--p2p', "127.0.0.1:$PortB", '--rpc', "127.0.0.1:$RpcB",
-    '--peer', "127.0.0.1:$PortA", '--proposer-seed', $SeedB,
-    '--interval', '1000', '--round-timeout', '1500',
-    '--validator', $PubA, '--validator', $PubB,
-    '--allow-insecure-crypto', '--unsafe-rpc')
-$pA = Start-Node $DirA @('run', $Genesis, '--datadir', $DirA,
-    '--p2p', "127.0.0.1:$PortA", '--rpc', "127.0.0.1:$RpcA",
-    '--proposer-seed', $SeedA, '--interval', '1000',
-    '--round-timeout', '1500',
-    '--validator', $PubA, '--validator', $PubB,
-    '--allow-insecure-crypto', '--unsafe-rpc') "a"
+
+@"
+version = 1
+[node]
+data_dir = "$($DirA -replace '\\','/')"
+allow_insecure_crypto = true
+[log]
+level = "info"
+[p2p]
+enabled = true
+host = "127.0.0.1"
+port = $PortA
+[rpc]
+enabled = true
+host = "127.0.0.1"
+port = $RpcA
+unsafe_methods = true
+[consensus]
+round_timeout_ms = 1500
+validators = ["$PubA", "$PubB"]
+[proposer]
+seed = "$SeedA"
+[blocks]
+interval_ms = 1000
+"@ | Set-Content -Encoding Ascii $ConfigA
+
+@"
+version = 1
+[node]
+data_dir = "$($DirB -replace '\\','/')"
+allow_insecure_crypto = true
+[log]
+level = "info"
+[p2p]
+enabled = true
+host = "127.0.0.1"
+port = $PortB
+[rpc]
+enabled = true
+host = "127.0.0.1"
+port = $RpcB
+unsafe_methods = true
+[consensus]
+round_timeout_ms = 1500
+validators = ["$PubA", "$PubB"]
+[proposer]
+seed = "$SeedB"
+[blocks]
+interval_ms = 1000
+[bootstrap]
+peer = "127.0.0.1:$PortA"
+"@ | Set-Content -Encoding Ascii $ConfigB
+
+# --- Launch ----------------------------------------------------------------
+
+$NodeBArgs = @('run', $Genesis, '--config', $ConfigB, '--datadir', $DirB)
+$pA = Start-Node $DirA @('run', $Genesis, '--config', $ConfigA, '--datadir', $DirA) "a"
 $pB = Start-Node $DirB $NodeBArgs "b"
 
 try {

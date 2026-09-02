@@ -4,8 +4,18 @@
  * The surface is intentionally tiny: one port, POST requests with a JSON
  * body, responses always Connection: close so no connection state machine is
  * needed. That is enough for wallets, explorers and `curl`, which is exactly
- * the audience at this stage of the network; a hardened public endpoint would
- * sit behind a reverse proxy anyway.
+ * the audience at this stage of the network.
+ *
+ * SECURITY MODEL (D2 decision):
+ *   - Loopback RPC is available without authentication for local tooling.
+ *   - Non-loopback RPC should be protected by an authenticated reverse proxy
+ *     (nginx, caddy, etc.) with bearer token or mTLS — this is the supported
+ *     production deployment pattern per AUDIT.md.
+ *   - Optional bearer token authentication is available as defense-in-depth:
+ *     set rpc.token in config or --rpc-token on the command line. When set,
+ *     all requests must include "Authorization: Bearer <token>" header.
+ *   - TLS termination is NOT built into the RPC server; use a reverse proxy
+ *     for TLS. This keeps the C codebase free of TLS library dependencies.
  */
 
 #ifndef ASTROLUNE_RPC_SERVER_H
@@ -46,12 +56,21 @@ typedef struct al_rpc_server {
     al_rpc_handler_fn handler;
     void           *userdata;
     al_rpc_client   clients[AL_RPC_MAX_CLIENTS];
+    /* Optional bearer token for defense-in-depth authentication.
+     * When token_len > 0, all requests must include a matching
+     * "Authorization: Bearer <token>" header. NULL/0 disables the check. */
+    const al_u8    *auth_token;
+    al_size         auth_token_len;
 } al_rpc_server;
 
 AL_NODISCARD al_status al_rpc_server_init(al_rpc_server *server,
                                           const char *host, al_u16 port,
                                           al_rpc_handler_fn handler,
                                           void *userdata);
+
+/* Set optional bearer token for RPC authentication. Pass NULL to disable. */
+void al_rpc_server_set_token(al_rpc_server *server,
+                             const al_u8 *token, al_size token_len);
 void al_rpc_server_close(al_rpc_server *server);
 
 /* One service tick: accept, read, dispatch complete requests, respond. */

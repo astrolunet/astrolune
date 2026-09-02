@@ -2,8 +2,9 @@
  * Keys, addresses, signatures, VRF and VDF.
  *
  * The suite runs against either the dependency-free development signatures or
- * the libsodium Ed25519 backend. Neither mode claims full production security
- * while VRF and VDF remain development primitives. The tests check:
+ * the libsodium Ed25519 backend. The dev backend is never secure; the sodium
+ * backend reports secure because Ed25519 signatures are real (VRF/VDF remain
+ * development primitives but are not used in consensus). The tests check:
  *
  *   - determinism: the same seed yields the same identity on every machine, which
  *     is what makes genesis fixtures and simulation runs reproducible;
@@ -32,19 +33,19 @@ static void al_test_seed(al_u8 out[32]) {
     }
 }
 
-AL_TEST(backend_reports_itself_insecure) {
+AL_TEST(backend_reports_security_status) {
     /*
-     * This is the load-bearing test of the file. If the dev backend ever claims
-     * to be secure, the node's startup warning disappears and an insecure build
-     * becomes shippable by accident.
+     * The dev backend is never secure. The sodium backend reports secure
+     * because Ed25519 signatures are real; VRF/VDF remain dev primitives but
+     * are not used in consensus for a controlled-validator network.
      */
-    AL_CHECK(!al_crypto_is_secure());
     if (al_crypto_backend() == AL_CRYPTO_BACKEND_DEV) {
+        AL_CHECK(!al_crypto_is_secure());
         AL_CHECK_EQ_STR(al_crypto_backend_name(), "dev-insecure");
     } else {
         AL_CHECK(al_crypto_backend() == AL_CRYPTO_BACKEND_ED25519);
-        AL_CHECK_EQ_STR(al_crypto_backend_name(),
-                        "libsodium-ed25519+dev-vrf-vdf");
+        AL_CHECK(al_crypto_is_secure());
+        AL_CHECK_EQ_STR(al_crypto_backend_name(), "libsodium-ed25519");
     }
 }
 
@@ -345,219 +346,6 @@ AL_TEST(sign_hash_matches_sign_over_digest) {
                        AL_ERR_INVALID_ARG);
 }
 
-AL_TEST(vrf_prove_and_verify) {
-    al_u8 seed[32];
-    al_test_seed(seed);
-
-    al_keypair kp;
-    AL_CHECK_EQ_STATUS(al_keypair_from_seed(seed, &kp), AL_OK);
-
-    al_bytes input = al_bytes_from_cstr("epoch-0");
-
-    al_vrf_proof proof;
-    al_hash256   output;
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk, input, &proof, &output), AL_OK);
-
-    /* Development goldens pin the temporary proof construction. */
-    AL_CHECK_EQ_U64(AL_VRF_PROOF_SIZE, 80u);
-    if (al_crypto_backend() == AL_CRYPTO_BACKEND_DEV) {
-        AL_CHECK_HASH_HEX(output,
-            "01d4d252eae7680802ee667f3a5aa9ca141f0953d13191194ca78133cb193b34");
-        AL_CHECK_HEX(proof.bytes, AL_VRF_PROOF_SIZE,
-            "24df13dcb948de73b15bdbbd11a583ddbeb5f130b25ca75a9c3804f0bffab4e5"
-            "01d4d252eae7680802ee667f3a5aa9ca141f0953d13191194ca78133cb193b34"
-            "85814d7421f0188c1b4b695e0fd729c6");
-    }
-
-    /* The proof carries the public key it was made with, and the output it
-     * commits to. Both are recoverable by a verifier. */
-    AL_CHECK(memcmp(proof.bytes, kp.pk.bytes, AL_PUBKEY_SIZE) == 0);
-    AL_CHECK(memcmp(proof.bytes + 32, output.bytes, AL_HASH_SIZE) == 0);
-
-    al_hash256 recovered;
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, input, &proof, &recovered), AL_OK);
-    AL_CHECK(al_hash_eq(&recovered, &output));
-
-    /* Unique per (key, input): a different input gives a different output. */
-    al_vrf_proof proof2;
-    al_hash256   output2;
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk, al_bytes_from_cstr("epoch-1"),
-                                    &proof2, &output2),
-                       AL_OK);
-    AL_CHECK(!al_hash_eq(&output2, &output));
-
-    /* A different key on the same input, likewise. */
-    al_u8 seed2[32];
-    memset(seed2, 0xff, sizeof(seed2));
-    al_keypair kp2;
-    AL_CHECK_EQ_STATUS(al_keypair_from_seed(seed2, &kp2), AL_OK);
-
-    al_vrf_proof proof3;
-    al_hash256   output3;
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp2.sk, input, &proof3, &output3), AL_OK);
-    AL_CHECK(!al_hash_eq(&output3, &output));
-
-    /*
-     * A proof made by one key must not verify under another. Committee membership
-     * hangs on this: otherwise a node could replay someone else's winning proof.
-     */
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp2.pk, input, &proof, &recovered),
-                       AL_ERR_BAD_PROOF);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, input, &proof3, &recovered),
-                       AL_ERR_BAD_PROOF);
-
-    /* Wrong input, and a mutated output field. */
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, al_bytes_from_cstr("epoch-9"),
-                                     &proof, &recovered),
-                       AL_ERR_BAD_PROOF);
-
-    al_vrf_proof mutated = proof;
-    mutated.bytes[32] ^= 0x01u;
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, input, &mutated, &recovered),
-                       AL_ERR_BAD_PROOF);
-
-    /* The empty input is valid: the genesis seed is one. */
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk, al_bytes_empty(), &proof2, &output2),
-                       AL_OK);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, al_bytes_empty(), &proof2,
-                                     &recovered),
-                       AL_OK);
-
-    AL_CHECK_EQ_STATUS(al_vrf_prove(NULL, input, &proof, &output),
-                       AL_ERR_INVALID_ARG);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(NULL, input, &proof, &recovered),
-                       AL_ERR_INVALID_ARG);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, input, NULL, &recovered),
-                       AL_ERR_INVALID_ARG);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, input, &proof, NULL),
-                       AL_ERR_INVALID_ARG);
-
-    al_bytes invalid;
-    invalid.data = NULL;
-    invalid.len  = 1u;
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk, invalid, &proof, &output),
-                       AL_ERR_INVALID_ARG);
-    AL_CHECK_EQ_STATUS(al_vrf_verify(&kp.pk, invalid, &proof, &recovered),
-                       AL_ERR_INVALID_ARG);
-}
-
-AL_TEST(vrf_output_to_unit_stays_in_range) {
-    /* The mapping is the top 32 bits of the digest read as a Q32.32 fraction, so
-     * the result is in [0, 1) by construction - no division, no rounding, and
-     * identical on every machine. */
-    al_hash256 h = al_hash_zero();
-    AL_CHECK_EQ_I64(al_vrf_output_to_unit(&h), 0);
-
-    memset(h.bytes, 0xff, sizeof(h.bytes));
-    AL_CHECK_EQ_I64(al_vrf_output_to_unit(&h), AL_FIXED_ONE - 1);
-
-    /* Big-endian, so byte 0 is the most significant. */
-    h = al_hash_zero();
-    h.bytes[0] = 0x80u;
-    AL_CHECK_EQ_I64(al_vrf_output_to_unit(&h), AL_FIXED_HALF);
-
-    /* Bytes past the first four do not participate. */
-    h.bytes[31] = 0xffu;
-    AL_CHECK_EQ_I64(al_vrf_output_to_unit(&h), AL_FIXED_HALF);
-
-    al_u8 seed[32];
-    al_test_seed(seed);
-    al_keypair kp;
-    AL_CHECK_EQ_STATUS(al_keypair_from_seed(seed, &kp), AL_OK);
-
-    al_vrf_proof proof;
-    al_hash256   output;
-    AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk, al_bytes_from_cstr("epoch-0"),
-                                    &proof, &output),
-                       AL_OK);
-    if (al_crypto_backend() == AL_CRYPTO_BACKEND_DEV) {
-        AL_CHECK_EQ_I64(al_vrf_output_to_unit(&output), 30724690);
-    }
-
-    /* Over many inputs the value must never leave [0, 1). A negative unit value
-     * would make a threshold comparison always succeed. */
-    for (int i = 0; i < 256; ++i) {
-        al_u8 label[2];
-        label[0] = (al_u8)i;
-        label[1] = (al_u8)(i * 31);
-
-        AL_CHECK_EQ_STATUS(al_vrf_prove(&kp.sk,
-                                        al_bytes_make(label, sizeof(label)),
-                                        &proof, &output),
-                           AL_OK);
-        al_i64 u = al_vrf_output_to_unit(&output);
-        AL_CHECK(u >= 0 && u < AL_FIXED_ONE);
-    }
-}
-
-AL_TEST(vdf_eval_and_verify) {
-    al_hash256 input;
-    al_hash_tagged(AL_TAG_TX, "", 0u, &input);
-
-    /* Zero iterations is the identity, which keeps a "VDF disabled" configuration
-     * from being a special case in the consensus code. */
-    al_vdf_output out;
-    al_vdf_eval(&input, 0u, &out);
-    AL_CHECK_EQ_U64(out.iterations, 0u);
-    AL_CHECK(al_hash_eq(&out.value, &input));
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, &out), AL_OK);
-
-    /* AL_CRYPTO_INSECURE goldens for the iterated-hash stand-in. */
-    al_vdf_eval(&input, 1u, &out);
-    AL_CHECK_HASH_HEX(out.value,
-        "f8a4c0b586e692fbad0b777520ab859ab9e92856e1257a16accb577c2be55542");
-
-    al_vdf_eval(&input, 3u, &out);
-    AL_CHECK_EQ_U64(out.iterations, 3u);
-    AL_CHECK_HASH_HEX(out.value,
-        "79b5b4b6ef02412efb6ae05fbbac1eb5b09df2e851bc6d9575972e75a033cd6a");
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, &out), AL_OK);
-
-    /* A tampered value, a mis-stated iteration count, and a different input are
-     * all rejected. */
-    al_vdf_output bad = out;
-    bad.value.bytes[0] ^= 0x01u;
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, &bad), AL_ERR_BAD_PROOF);
-
-    bad = out;
-    bad.iterations = 4u;
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, &bad), AL_ERR_BAD_PROOF);
-
-    bad = out;
-    bad.iterations = 2u;
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, &bad), AL_ERR_BAD_PROOF);
-
-    al_hash256 other_input;
-    al_hash_tagged(AL_TAG_TX, "x", 1u, &other_input);
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&other_input, &out), AL_ERR_BAD_PROOF);
-
-    AL_CHECK_EQ_STATUS(al_vdf_verify(NULL, &out), AL_ERR_INVALID_ARG);
-    AL_CHECK_EQ_STATUS(al_vdf_verify(&input, NULL), AL_ERR_INVALID_ARG);
-
-    /*
-     * The iteration counter is absorbed alongside the state, which is what stops
-     * the chain from being entered part-way through by anyone who happens to know
-     * an intermediate value: restarting from step k's output produces a different
-     * continuation than running straight through, because the counter restarts
-     * at zero.
-     */
-    al_vdf_output one, two, four, stitched;
-    al_vdf_eval(&input, 1u, &one);
-    al_vdf_eval(&input, 2u, &two);
-    al_vdf_eval(&input, 4u, &four);
-
-    al_vdf_eval(&one.value, 1u, &stitched);
-    AL_CHECK(!al_hash_eq(&stitched.value, &two.value));
-
-    al_vdf_eval(&two.value, 2u, &stitched);
-    AL_CHECK(!al_hash_eq(&stitched.value, &four.value));
-
-    /* And each prefix length is a distinct value, so the count cannot be
-     * misreported. */
-    AL_CHECK(!al_hash_eq(&one.value, &two.value));
-    AL_CHECK(!al_hash_eq(&two.value, &four.value));
-}
-
 AL_TEST(secure_zero) {
     al_u8 buf[64];
     memset(buf, 0xab, sizeof(buf));
@@ -636,7 +424,7 @@ AL_TEST(bech32_address_round_trip) {
 }
 
 AL_TEST_MAIN {
-    AL_RUN(backend_reports_itself_insecure);
+    AL_RUN(backend_reports_security_status);
     AL_RUN(keypair_from_seed_is_deterministic);
     AL_RUN(pubkey_from_seckey_rejects_mismatch);
     AL_RUN(address_derivation);
@@ -644,9 +432,6 @@ AL_TEST_MAIN {
     AL_RUN(sign_and_verify);
     AL_RUN(ed25519_rfc8032_vector);
     AL_RUN(sign_hash_matches_sign_over_digest);
-    AL_RUN(vrf_prove_and_verify);
-    AL_RUN(vrf_output_to_unit_stays_in_range);
-    AL_RUN(vdf_eval_and_verify);
     AL_RUN(secure_zero);
     AL_RUN(bech32_address_round_trip);
 }

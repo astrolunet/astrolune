@@ -1,6 +1,9 @@
 #include "astrolune/tx.h"
+#include "astrolune/evidence.h"
+#include "astrolune/validator_set.h"
 #include "internal/common.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #define TX_FIXED_ENVELOPE_SIZE 191u
@@ -18,6 +21,11 @@ static al_bool tx_type_valid(al_tx_type type) {
 static al_bool potb_operation_valid(al_potb_operation operation) {
     return (operation >= AL_POTB_REGISTER &&
             operation <= AL_POTB_COMMITTEE_VOTE) ? AL_TRUE : AL_FALSE;
+}
+
+static al_bool pubkey_eq(const al_pubkey *a, const al_pubkey *b) {
+    return al_bytes_eq(al_bytes_make(a->bytes, AL_PUBKEY_SIZE),
+                       al_bytes_make(b->bytes, AL_PUBKEY_SIZE));
 }
 
 static const char *vm_hash_domain_tag(al_u64 domain) {
@@ -784,9 +792,151 @@ static al_status tx_execute_body(const al_transaction *tx, al_state_txn *txn,
         al_writer_raw(&writer, tx->body.potb.data.data,
                       tx->body.potb.data.len);
         AL_TRY(al_writer_finish(&writer));
-        return al_state_txn_system_storage_set(
+        AL_TRY(al_state_txn_system_storage_set(
             txn, al_bytes_make(key_bytes, sizeof(key_bytes)),
-            al_bytes_make(record, record_len));
+            al_bytes_make(record, record_len)));
+
+        /* Handle registration: store the validator record in the validator set.
+         * The sender's pubkey is the validator identity. */
+        if (tx->body.potb.operation == AL_POTB_REGISTER) {
+            al_potb_record validator;
+            validator = al_potb_record_init(&tx->body.potb.target);
+            /* Initialize with default stats - real stats come from attestations. */
+            validator.uptime_days = 1u;
+            validator.first_seen_day = context->protocol_day;
+            validator.last_active_day = context->protocol_day;
+            AL_TRY(al_validator_set_register(txn, &validator,
+                                             context->block_height));
+        }
+
+        /* Handle offence evidence: verify basic structure and store for consensus processing.
+         * The actual slashing with committee verification happens at block finalization. */
+        if (tx->body.potb.operation == AL_POTB_OFFENCE_EVIDENCE) {
+            /* Decode the evidence from the transaction data. */
+            al_evidence evidence;
+            AL_TRY(al_evidence_decode(tx->body.potb.data, &evidence));
+
+            /* Basic structure verification (no committee check - done at finalization). */
+            if (!pubkey_eq(&evidence.vote1.voter, &evidence.vote2.voter)) {
+                return AL_ERR_CONSENSUS_VIOLATION;
+            }
+            if (evidence.vote1.phase != evidence.vote2.phase) {
+                return AL_ERR_CONSENSUS_VIOLATION;
+            }
+            if (al_hash_eq(&evidence.vote1.block_hash, &evidence.vote2.block_hash)) {
+                return AL_ERR_CONSENSUS_VIOLATION; /* Not conflicting */
+            }
+
+            /* Store the evidence in system storage for audit trail and consensus processing. */
+            char evidence_key_buf[64];
+            al_evidence_key(context->block_height, evidence_key_buf, sizeof(evidence_key_buf));
+            al_size evidence_key_len = strlen(evidence_key_buf);
+            al_bytes evidence_key = al_bytes_make(
+                (const al_u8 *)evidence_key_buf, evidence_key_len);
+            al_u8 evidence_encoded[AL_EVIDENCE_MAX_ENCODED_SIZE];
+            al_size written = 0u;
+            AL_TRY(al_evidence_encode(&evidence,
+                                      (al_bytes_mut){ evidence_encoded, sizeof(evidence_encoded) },
+                                      &written));
+            AL_TRY(al_state_txn_system_storage_set(
+                txn, evidence_key,
+                al_bytes_make(evidence_encoded, written)));
+
+            /* Apply the penalty durably to the on-chain validator record so
+             * the slash survives a restart. Without this, only the in-memory
+             * daemon copy is penalised and the penalty is lost on restart. */
+            {
+                al_potb_record vrecord;
+                al_status vstatus = al_validator_set_load_single(
+                    txn, &evidence.vote1.voter, &vrecord);
+                if (vstatus == AL_OK) {
+                    al_u32 now_day = context->protocol_day;
+                    (void)al_evidence_process(context->potb_params,
+                                              &vrecord, &evidence, now_day);
+                    (void)al_validator_set_store(txn, &vrecord);
+                }
+            }
+        }
+
+        /* Handle governance operations: update on-chain validator records. */
+        if (tx->body.potb.operation == AL_POTB_ATTEST ||
+            tx->body.potb.operation == AL_POTB_CHALLENGE ||
+            tx->body.potb.operation == AL_POTB_CHALLENGE_RESPONSE) {
+            al_potb_record vrecord;
+            al_status vstatus = al_validator_set_load_single(
+                txn, &tx->body.potb.target, &vrecord);
+            if (vstatus == AL_OK) {
+                if (tx->body.potb.operation == AL_POTB_ATTEST) {
+                    vrecord.inbound_attestations++;
+                } else if (tx->body.potb.operation == AL_POTB_CHALLENGE) {
+                    vrecord.challenges_issued++;
+                } else {
+                    vrecord.challenges_passed++;
+                }
+                vrecord.last_active_day = context->protocol_day;
+                AL_TRY(al_validator_set_store(txn, &vrecord));
+            }
+        }
+
+        if (tx->body.potb.operation == AL_POTB_BOND_DEPOSIT ||
+            tx->body.potb.operation == AL_POTB_BOND_WITHDRAW) {
+            al_potb_record vrecord;
+            al_status vstatus = al_validator_set_load_single(
+                txn, &tx->body.potb.target, &vrecord);
+            if (vstatus == AL_OK) {
+                if (tx->body.potb.operation == AL_POTB_BOND_DEPOSIT) {
+                    if (al_add_overflow_u64(vrecord.operational_bond,
+                                            tx->body.potb.amount,
+                                            &vrecord.operational_bond)) {
+                        return AL_ERR_ARITH_OVERFLOW;
+                    }
+                } else {
+                    if (vrecord.operational_bond < tx->body.potb.amount) {
+                        return AL_ERR_INSUFFICIENT_FUNDS;
+                    }
+                    vrecord.operational_bond -= tx->body.potb.amount;
+                }
+                AL_TRY(al_validator_set_store(txn, &vrecord));
+            }
+        }
+
+        if (tx->body.potb.operation == AL_POTB_SEED_COMMIT ||
+            tx->body.potb.operation == AL_POTB_SEED_REVEAL) {
+            /* Store the seed contribution in system storage, keyed by
+             * validator pubkey and epoch derived from block height. */
+            char seed_key_buf[128];
+            al_u32 epoch = (al_u32)(context->block_height / 400u);
+            const char *prefix = (tx->body.potb.operation == AL_POTB_SEED_COMMIT)
+                                     ? "seed_commit:" : "seed_reveal:";
+            char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
+            (void)al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
+                                              AL_PUBKEY_SIZE),
+                                pk_hex, sizeof(pk_hex));
+            (void)snprintf(seed_key_buf, sizeof(seed_key_buf),
+                           "%s%s:%u", prefix, pk_hex, epoch);
+            al_bytes seed_key = al_bytes_make((const al_u8 *)seed_key_buf,
+                                              strlen(seed_key_buf));
+            AL_TRY(al_state_txn_system_storage_set(
+                txn, seed_key, tx->body.potb.data));
+        }
+
+        if (tx->body.potb.operation == AL_POTB_COMMITTEE_VOTE) {
+            /* Store the committee appeal vote in system storage. */
+            char vote_key_buf[128];
+            char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
+            (void)al_hex_encode(al_bytes_make(tx->body.potb.target.bytes,
+                                              AL_PUBKEY_SIZE),
+                                pk_hex, sizeof(pk_hex));
+            (void)snprintf(vote_key_buf, sizeof(vote_key_buf),
+                           "committee_vote:%s:%llu", pk_hex,
+                           (unsigned long long)context->block_height);
+            al_bytes vote_key = al_bytes_make((const al_u8 *)vote_key_buf,
+                                              strlen(vote_key_buf));
+            AL_TRY(al_state_txn_system_storage_set(
+                txn, vote_key, tx->body.potb.data));
+        }
+
+        return AL_OK;
     }
 
     AL_TRY(al_state_txn_transfer(txn, sender, &tx->body.call.contract,

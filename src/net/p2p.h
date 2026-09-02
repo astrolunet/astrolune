@@ -60,6 +60,12 @@ typedef struct al_p2p_peer {
     al_height  height;
     al_u16     listen_port;
 
+    /* Transport encryption state (populated after KEY_EXCHANGE). */
+    al_bool    encryption_enabled;
+    al_u8      shared_key[AL_AEAD_KEY_SIZE];
+    al_u64     tx_nonce_counter;  /* incremented per encrypted frame sent */
+    al_u64     rx_nonce_counter;  /* incremented per encrypted frame recv */
+
     /* Inbound frame assembly: fixed header staging, then a buffer sized to
      * the announced payload length and freed when the frame dispatches.
      * Frames routinely span several receive chunks, so the decoded type is
@@ -111,6 +117,7 @@ typedef struct al_p2p_config {
     al_u32     handshake_timeout_ms;
     al_u32     ping_interval_ms;
     al_u32     idle_timeout_ms;
+    al_bool    require_encryption; /* require AEAD transport encryption    */
 } al_p2p_config;
 
 typedef struct al_p2p {
@@ -120,6 +127,10 @@ typedef struct al_p2p {
     al_bool         has_listener;
     al_size         peer_count;
     al_p2p_peer     peers[AL_P2P_MAX_PEERS];
+
+    /* Local ephemeral keypair for transport encryption. Generated once at
+     * startup; exchanged with peers during KEY_EXCHANGE handshake. */
+    al_kx_keypair   local_kx;
 
     al_hash256 seen_transactions[AL_P2P_DEDUP_RING];
     al_size    seen_transaction_next;

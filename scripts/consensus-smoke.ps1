@@ -54,7 +54,7 @@ function Wait-For([scriptblock]$Probe, $Seconds, $What) {
 
 function Start-Validator($Index, $Genesis, $PublicKeys, $Peers) {
     $dir = Join-Path $Work ("node-{0}" -f $Index)
-    $args = @('run', $Genesis, '--datadir', $dir,
+    $args = @('run', $Genesis, '--no-config', '--datadir', $dir,
         '--p2p', ("127.0.0.1:{0}" -f $P2pPorts[$Index]),
         '--rpc', ("127.0.0.1:{0}" -f $RpcPorts[$Index]),
         '--proposer-seed', $Seeds[$Index], '--interval', '800',

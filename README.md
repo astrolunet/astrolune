@@ -47,8 +47,9 @@ for the full model.
 > path uses configured PoTB committees, signed proposals, PREVOTE/PRECOMMIT
 > quorum and durable finality — built for consortiums and closed networks, not
 > permissionless deployment. Signatures are a development stub by default;
-> the sodium build swaps in real Ed25519. VRF and VDF remain insecure stubs
-> either way, so `al_crypto_is_secure()` stays false until both are replaced.
+> the sodium build swaps in real Ed25519. VRF and VDF are not implemented or
+> used by consensus; `al_crypto_is_secure()` describes the active signature
+> backend only.
 > See the [cryptography doc](https://landing-one-virid-56.vercel.app/en/docs/02-architecture/cryptography)
 > and [AUDIT.md](AUDIT.md) for the exact readiness boundary.
 

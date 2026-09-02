@@ -35,11 +35,14 @@
 #include "astrolune/block.h"
 #include "astrolune/bytes.h"
 #include "astrolune/crypto.h"
+#include "astrolune/evidence.h"
 #include "astrolune/fixed.h"
 #include "astrolune/hash.h"
 #include "astrolune/potb.h"
+#include "astrolune/signer.h"
 #include "astrolune/state.h"
 #include "astrolune/tx.h"
+#include "astrolune/validator_set.h"
 #include "astrolune/vm.h"
 
 /* reinterpret_cast rather than a C cast: the tooling builds with
@@ -163,7 +166,7 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_hash_zero),
     AL_ABI_SYM(al_hash_bit),
 
-    /* crypto.h - 21 */
+    /* crypto.h - 32 */
     AL_ABI_SYM(al_crypto_backend),
     AL_ABI_SYM(al_crypto_backend_name),
     AL_ABI_SYM(al_crypto_is_secure),
@@ -173,11 +176,6 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_verify),
     AL_ABI_SYM(al_sign_hash),
     AL_ABI_SYM(al_verify_hash),
-    AL_ABI_SYM(al_vrf_prove),
-    AL_ABI_SYM(al_vrf_verify),
-    AL_ABI_SYM(al_vrf_output_to_unit),
-    AL_ABI_SYM(al_vdf_eval),
-    AL_ABI_SYM(al_vdf_verify),
     AL_ABI_SYM(al_address_from_pubkey),
     AL_ABI_SYM(al_address_for_contract),
     AL_ABI_SYM(al_address_eq),
@@ -187,8 +185,12 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_address_is_zero),
     AL_ABI_SYM(al_address_zero),
     AL_ABI_SYM(al_secure_zero),
+    AL_ABI_SYM(al_kx_keygen),
+    AL_ABI_SYM(al_kx_shared),
+    AL_ABI_SYM(al_aead_encrypt),
+    AL_ABI_SYM(al_aead_decrypt),
 
-    /* potb.h - 30 */
+    /* potb.h - 38 */
     AL_ABI_SYM(al_potb_params_default),
     AL_ABI_SYM(al_potb_params_validate),
     AL_ABI_SYM(al_potb_record_init),
@@ -219,8 +221,43 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_potb_epoch_seed_mix),
     AL_ABI_SYM(al_potb_epoch_seed_finalise),
     AL_ABI_SYM(al_potb_reward_for),
+    AL_ABI_SYM(al_potb_gini),
+    AL_ABI_SYM(al_potb_hhi),
+    AL_ABI_SYM(al_potb_independence_check),
+    AL_ABI_SYM(al_potb_entropy_observe),
+    AL_ABI_SYM(al_potb_entropy_value),
+    AL_ABI_SYM(al_potb_profile_change_score),
+    AL_ABI_SYM(al_potb_profile_snapshot),
+    AL_ABI_SYM(al_potb_appeal_resolve),
 
-    /* block.h - 12 */
+    /* evidence.h - 6 */
+    AL_ABI_SYM(al_evidence_create),
+    AL_ABI_SYM(al_evidence_encode),
+    AL_ABI_SYM(al_evidence_decode),
+    AL_ABI_SYM(al_evidence_verify),
+    AL_ABI_SYM(al_evidence_process),
+    AL_ABI_SYM(al_evidence_key),
+
+    /* signer.h - 7 */
+    AL_ABI_SYM(al_signer_new_from_keypair),
+    AL_ABI_SYM(al_signer_new_from_hex),
+    AL_ABI_SYM(al_signer_destroy),
+    AL_ABI_SYM(al_signer_pubkey),
+    AL_ABI_SYM(al_signer_sign),
+    AL_ABI_SYM(al_signer_encrypt_seed),
+    AL_ABI_SYM(al_signer_decrypt_seed),
+
+    /* validator_set.h - 8 */
+    AL_ABI_SYM(al_validator_set_load),
+    AL_ABI_SYM(al_validator_set_load_single),
+    AL_ABI_SYM(al_validator_set_store),
+    AL_ABI_SYM(al_validator_set_register),
+    AL_ABI_SYM(al_validator_set_remove),
+    AL_ABI_SYM(al_validator_set_record_registration),
+    AL_ABI_SYM(al_validator_set_contains),
+    AL_ABI_SYM(al_validator_set_is_active),
+
+    /* block.h - 13 */
     AL_ABI_SYM(al_genesis_validate),
     AL_ABI_SYM(al_genesis_encode),
     AL_ABI_SYM(al_genesis_decode),
@@ -300,8 +337,8 @@ extern const al_abi_fn al_abi_symbols[] = {
 extern const std::size_t al_abi_symbol_count =
     sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]);
 
-/* 10 + 37 + 12 + 20 + 25 + 21 + 30 + 13 + 32 + 15 + 8. Catches an entry lost to a
+/* 8 + 37 + 12 + 20 + 25 + 28 + 38 + 6 + 7 + 8 + 13 + 32 + 15 + 8. Catches an entry lost to a
  * bad merge; does not catch a function added to a header and never listed. */
-static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 223u,
-              "ABI: the public surface is 223 functions - update the table and "
-              "this count together, or say why the surface changed");
+static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 251u,
+              "ABI: the public surface is 251 functions (5 removed: VRF/VDF) - "
+              "update the table and this count together, or say why the surface changed");

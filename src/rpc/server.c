@@ -93,6 +93,52 @@ static void client_send_all(al_rpc_client *client, const char *text) {
     }
 }
 
+/* --- Bearer token authentication ----------------------------------------------- */
+
+static al_bool check_bearer_token(const al_rpc_server *server,
+                                  const char *headers, al_size headers_len) {
+    /* If no token is configured, allow all requests. */
+    if (server->auth_token == NULL || server->auth_token_len == 0u) {
+        return AL_TRUE;
+    }
+
+    /* Find "Authorization:" header (case-insensitive). */
+    const char *auth_value = find_header(headers, headers_len, "authorization:");
+    if (auth_value == NULL) return AL_FALSE;
+
+    /* Skip whitespace. */
+    while (*auth_value == ' ' || *auth_value == '\t') auth_value++;
+
+    /* Check for "Bearer " prefix (case-insensitive). */
+    static const char BEARER[] = "Bearer ";
+    for (al_size i = 0u; i < sizeof(BEARER) - 1u; i++) {
+        char a = auth_value[i];
+        char b = BEARER[i];
+        if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+        if (a != b) return AL_FALSE;
+    }
+    const char *token_start = auth_value + sizeof(BEARER) - 1u;
+
+    /* Find end of token (CRLF or end of headers). */
+    const char *token_end = token_start;
+    while (*token_end != '\0' && *token_end != '\r' && *token_end != '\n') {
+        token_end++;
+    }
+
+    al_size provided_len = (al_size)(token_end - token_start);
+    if (provided_len != server->auth_token_len) return AL_FALSE;
+
+    /* Constant-time comparison to avoid timing side-channels. */
+    al_u8 diff = 0u;
+    for (al_size i = 0u; i < server->auth_token_len; i++) {
+        diff |= (al_u8)((al_u8)token_start[i] ^ server->auth_token[i]);
+    }
+    return (diff == 0u) ? AL_TRUE : AL_FALSE;
+}
+
+/* --- Request dispatch ------------------------------------------------------------ */
+
 /*
  * Assemble the JSON-RPC envelope around what the handler produced. The id is
  * captured up front so a mid-flight handler failure still yields a well-formed
@@ -137,15 +183,32 @@ static void send_response(al_rpc_client *client, const al_json_writer *body) {
 static void dispatch_request(al_rpc_server *server, al_size index) {
     al_rpc_client *client = &server->clients[index];
 
-    /* Parse only the JSON body: everything before the header break is HTTP
-     * framing the JSON layer must never see. */
-    const char *body_start =
+    /* Find the header/body boundary. */
+    const char *header_end =
         strstr((const char *)client->buffer, "\r\n\r\n");
-    if (body_start == NULL) {
+    if (header_end == NULL) {
         client_close(server, index);
         return;
     }
-    body_start += 4u;
+
+    /* Check bearer token authentication before parsing JSON. */
+    if (!check_bearer_token(server, (const char *)client->buffer,
+                            (al_size)(header_end - (const char *)client->buffer))) {
+        /* Send 401 Unauthorized response. */
+        static const char AUTH_ERROR[] =
+            "HTTP/1.1 401 Unauthorized\r\n"
+            "Content-Type: application/json\r\n"
+            "Content-Length: 80\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32000,"
+            "\"message\":\"authentication required\"}}";
+        client_send_all(client, AUTH_ERROR);
+        client_close(server, index);
+        return;
+    }
+
+    const char *body_start = header_end + 4u;
 
     al_json_value *request = NULL;
     al_status parse_status = al_json_parse(body_start, &request);
@@ -271,6 +334,13 @@ al_status al_rpc_server_init(al_rpc_server *server, const char *host,
         server->listener = invalid_socket();
     }
     return status;
+}
+
+void al_rpc_server_set_token(al_rpc_server *server,
+                             const al_u8 *token, al_size token_len) {
+    if (server == NULL) return;
+    server->auth_token = token;
+    server->auth_token_len = token_len;
 }
 
 void al_rpc_server_close(al_rpc_server *server) {

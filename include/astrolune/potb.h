@@ -136,6 +136,22 @@ typedef struct al_potb_params {
     al_u16 reward_bonded_bp;
     /* Ceiling on any one node's reward as a multiple of the flat share. */
     al_fixed reward_max_multiple;
+
+    /* --- Anti-domination (A1) --------------------------------------------- */
+
+    /* Maximum允许的 Gini coefficient across eligible node weights. Exceeding
+     * this triggers an alert and temporarily lowers CAP_TBS/CAP_TGW for
+     * nodes above the 99th percentile. */
+    al_fixed gini_max;
+    /* Maximum允许的 Herfindahl-Hirschman Index across top-20 nodes. */
+    al_fixed hhi_max;
+
+    /* --- Committee size randomization (B3) -------------------------------- */
+
+    /* Committee size is randomized in [min, max] per epoch to prevent a cartel
+     * from knowing the exact majority threshold in advance. */
+    al_u32 committee_size_min;
+    al_u32 committee_size_max;
 } al_potb_params;
 
 /* The parameters from the specification. */
@@ -206,6 +222,8 @@ typedef struct al_potb_record {
      * cannot stay inside itself. */
     al_u32 challenges_issued;
     al_u32 challenges_passed;
+    /* (B1) Challenges missed: systematic non-response penalises TGW. */
+    al_u32 challenges_missed;
 
     /* --- Network diversity ----------------------------------------------- */
 
@@ -220,6 +238,25 @@ typedef struct al_potb_record {
     /* Correlation score against the node's suspected group, Q32.32 and >= 0.
      * Computed by al_potb_correlation_score over a candidate group. */
     al_fixed correlation_score;
+
+    /* --- Behavioral profile change detection (B2) ------------------------- */
+
+    /* Previous epoch's behavioral snapshot for detecting identity transfers.
+     * A sharp change in these while the identifier stays constant signals
+     * a possible key sale. */
+    al_u32  prev_asn;
+    al_u32  prev_inbound_attestations;
+    al_u32  prev_challenges_passed;
+    al_u32  prev_uptime_days;
+    al_u32  profile_snapshot_day;  /* day the snapshot was taken */
+
+    /* --- Behavioral entropy (A3) ------------------------------------------ */
+
+    /* Shannon entropy of the node's online/offline timing pattern over the
+     * trailing window, Q32.32 in [0, log2(window_slots)]. High entropy means
+     * diverse, unpredictable behavior; low entropy means uniform/repetitive
+     * patterns typical of automated farms. */
+    al_fixed behavioral_entropy;
 
     /* --- Rewards ---------------------------------------------------------- */
 
@@ -393,6 +430,39 @@ AL_PUBLIC al_potb_level al_potb_level_of(const al_potb_params *p, const al_potb_
 AL_PUBLIC const char *al_potb_level_str(al_potb_level level);
 
 /* --------------------------------------------------------------------------
+ * Appeal (B4)
+ * -------------------------------------------------------------------------- */
+
+/* An on-chain appeal against a COD/correlation penalty. Fixed cost, resolved
+ * by the current-epoch committee within a defined SLA. */
+typedef enum al_potb_appeal_status {
+    AL_POTB_APPEAL_PENDING  = 0,
+    AL_POTB_APPEAL_GRANTED  = 1,
+    AL_POTB_APPEAL_DENIED   = 2,
+    AL_POTB_APPEAL_STATUS_SENTINEL = 0x7fffffff
+} al_potb_appeal_status;
+
+typedef struct al_potb_appeal {
+    al_pubkey          appellant;       /* the penalised node              */
+    al_height          appeal_height;   /* block height of the appeal      */
+    al_u32             penalty_day;     /* day the penalty was applied     */
+    al_potb_appeal_status status;       /* pending / granted / denied      */
+    al_u32             resolved_day;    /* day the appeal was resolved     */
+    al_hash256         committee_vote;  /* hash of the committee's vote    */
+} al_potb_appeal;
+
+/* --- Independence metrics (B5) -------------------------------------------- */
+
+/* Metrics for transparent independence counting in genesis dilution. */
+typedef struct al_potb_independence_stats {
+    al_u32 total_eligible;       /* nodes above candidate threshold        */
+    al_u32 independent_count;    /* nodes passing COD/TDI independence     */
+    al_fixed gini;               /* Gini coefficient of weight distro     */
+    al_fixed hhi;                /* HHI of top-20 weights                 */
+    al_bool  alert_triggered;    /* AL_TRUE if gini > gini_max or hhi > hhi_max */
+} al_potb_independence_stats;
+
+/* --------------------------------------------------------------------------
  * Slashing
  * -------------------------------------------------------------------------- */
 
@@ -409,6 +479,9 @@ typedef enum al_potb_offence {
      * impossible by accident, which is why it is the one severe penalty. */
     AL_POTB_OFFENCE_DOUBLE_SIGN,
     AL_POTB_OFFENCE_REPEAT_DOUBLE_SIGN,
+    /* (B1) Systematic non-response to external challenges. Judged against
+     * the network median like vote misses. */
+    AL_POTB_OFFENCE_CHALLENGE_MISS,
     AL_POTB_OFFENCE_SENTINEL = 0x7fffffff
 } al_potb_offence;
 
@@ -429,6 +502,50 @@ AL_PUBLIC al_fixed al_potb_penalty_for(al_potb_offence offence);
 AL_PUBLIC al_status al_potb_slash(const al_potb_params *p, al_potb_record *r,
                         const al_potb_network_stats *net,
                         al_potb_offence offence, al_u32 now_day);
+
+/* --------------------------------------------------------------------------
+ * Anti-domination metrics (A1)
+ * -------------------------------------------------------------------------- */
+
+/* Gini coefficient of a weight distribution. `weights` is sorted ascending;
+ * `count` is the number of entries. Returns Q32.32 in [0, 1]. O(n log n). */
+AL_PUBLIC al_fixed al_potb_gini(const al_fixed *weights, al_size count);
+
+/* Herfindahl-Hirschman Index: sum of squared market shares. `weights` is
+ * the full set; `count` the number of entries. Returns Q32.32. */
+AL_PUBLIC al_fixed al_potb_hhi(const al_fixed *weights, al_size count);
+
+/* Compute independence stats across all eligible nodes. Called once per epoch
+ * alongside TGW recomputation. */
+AL_PUBLIC void al_potb_independence_check(
+    const al_potb_params *p,
+    const al_potb_record *const *records, al_size record_count,
+    const al_potb_network_stats *net, al_u32 now_day,
+    al_potb_independence_stats *out);
+
+/* --------------------------------------------------------------------------
+ * Behavioral entropy (A3)
+ * -------------------------------------------------------------------------- */
+
+/* Update the behavioral entropy estimate from a new activity observation.
+ * `activity_slot` is a discretised time-of-day index (0..slots-1). */
+AL_PUBLIC void al_potb_entropy_observe(al_potb_record *r, al_u32 activity_slot,
+                                      al_u32 total_slots);
+
+/* Current entropy value, exposed for diagnostics. */
+AL_PUBLIC al_fixed al_potb_entropy_value(const al_potb_record *r);
+
+/* --------------------------------------------------------------------------
+ * Profile change detection (B2)
+ * -------------------------------------------------------------------------- */
+
+/* Score how much a node's behavioral profile has changed since the last
+ * snapshot. Returns Q32.32 in [0, 1]: 0 = no change, 1 = complete change.
+ * A high score indicates possible identity transfer. */
+AL_PUBLIC al_fixed al_potb_profile_change_score(const al_potb_record *r);
+
+/* Take a new behavioral snapshot (call at epoch boundaries). */
+AL_PUBLIC void al_potb_profile_snapshot(al_potb_record *r, al_u32 now_day);
 
 /* --------------------------------------------------------------------------
  * Committee selection
@@ -503,6 +620,24 @@ AL_PUBLIC AL_NODISCARD al_bool al_potb_committee_contains(const al_potb_committe
 
 /* Votes needed for BFT finality: floor(2n/3) + 1. */
 AL_PUBLIC al_u32 al_potb_quorum_threshold(al_u32 committee_size);
+
+/* --------------------------------------------------------------------------
+ * Appeal (B4)
+ * -------------------------------------------------------------------------- */
+
+/* Fixed cost to file an appeal (prevents spam). */
+#define AL_POTB_APPEAL_COST 1000u
+
+/* Maximum epochs an appeal may span before automatic resolution. */
+#define AL_POTB_APPEAL_SLA_EPOCHS 3u
+
+/* Process an appeal vote by the epoch committee. When the committee majority
+ * votes to grant, the penalty_multiplier is restored to the pre-penalty value
+ * (clamped to AL_FIXED_ONE). Returns AL_OK on success. */
+AL_PUBLIC AL_NODISCARD al_status al_potb_appeal_resolve(
+    const al_potb_params *p, al_potb_record *record,
+    al_potb_appeal *appeal, al_u32 grant_votes, al_u32 total_votes,
+    al_u32 now_day);
 
 /* --------------------------------------------------------------------------
  * Epoch seed

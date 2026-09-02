@@ -1,0 +1,77 @@
+# Astrolune node configuration
+#
+# This file is required unless --no-config is passed on the CLI.
+# CLI flags override config file values: the config provides defaults,
+# the CLI is authoritative.
+#
+# Generate a default config:  alnode run <genesis> --datadir ./data --config config.toml
+
+version = 1
+
+# ---------------------------------------------------------------------------
+# [node]  — required settings
+# ---------------------------------------------------------------------------
+[node]
+# Data directory for chain state, proposer key, signing journal, etc.
+# Required: the node will not start without it.
+data_dir = "./data"
+
+# Override the deployment crypto gate. Only safe for local devnets.
+# allow_insecure_crypto = false
+
+# ---------------------------------------------------------------------------
+# [log]  — logging
+# ---------------------------------------------------------------------------
+[log]
+# Log level: trace | debug | info | warn | error | fatal | silent
+level = "info"
+
+# ---------------------------------------------------------------------------
+# [p2p]  — peer-to-peer transport
+# ---------------------------------------------------------------------------
+[p2p]
+enabled = true
+host    = "0.0.0.0"
+port    = 44001
+# require_encryption = false
+
+# ---------------------------------------------------------------------------
+# [rpc]  — JSON-RPC server
+# ---------------------------------------------------------------------------
+[rpc]
+enabled = true
+host    = "127.0.0.1"
+port    = 44002
+# unsafe_methods = false
+# token = ""
+
+# ---------------------------------------------------------------------------
+# [consensus]  — validator set and timing
+# ---------------------------------------------------------------------------
+[consensus]
+round_timeout_ms = 6000
+# Static validator public keys (hex). Used at genesis and as fallback
+# when no on-chain validators are registered yet.
+validators = [
+    # "<public-key-hex>",
+]
+
+# ---------------------------------------------------------------------------
+# [bootstrap]  — peer endpoints dialed at startup
+# ---------------------------------------------------------------------------
+# [bootstrap]
+# peer1 = "host:port"
+
+# ---------------------------------------------------------------------------
+# [blocks]  — block production
+# ---------------------------------------------------------------------------
+[blocks]
+interval_ms = 2000
+# empty = false
+
+# ---------------------------------------------------------------------------
+# [proposer]  — block signing key
+# ---------------------------------------------------------------------------
+[proposer]
+# seed = "<64-hex>"          # devnet only; production uses generated key file
+# passphrase = ""

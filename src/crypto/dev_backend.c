@@ -5,7 +5,8 @@
  * touching this file. In short: it implements the signature, VRF and VDF
  * signature interface with hash constructions so that every code path above it
  * runs against real logic, while the primitive remains deliberately trivial
- * and trivially forgeable. The temporary VRF/VDF live in dev_vrf_vdf.c because
+ * and trivially forgeable. VRF/VDF have been removed from the deployment
+ * path (see crypto.h).
  * they remain in use while the signature backend is migrated independently.
  *
  * What it actually does
@@ -32,6 +33,8 @@
  */
 
 #include "astrolune/crypto.h"
+
+#include <stdlib.h>
 
 #include "internal/common.h"
 
@@ -212,4 +215,116 @@ al_status al_verify_hash(const al_pubkey *pk, const al_hash256 *h,
         return AL_ERR_INVALID_ARG;
     }
     return al_dev_verify(pk, h->bytes, AL_HASH_SIZE, sig);
+}
+
+/* --------------------------------------------------------------------------
+ * Key Exchange (toy: hash-based, NOT secure)
+ * -------------------------------------------------------------------------- */
+
+/* Forward declaration - dev backend only, not in public headers. */
+static al_status dev_random_bytes(al_u8 *buf, al_size len) {
+    if (buf == NULL || len == 0u) return AL_ERR_INVALID_ARG;
+    for (al_size i = 0u; i < len; ++i) {
+        buf[i] = (al_u8)(rand() & 0xFF);
+    }
+    return AL_OK;
+}
+
+al_status al_kx_keygen(al_kx_keypair *out) {
+    if (out == NULL) return AL_ERR_INVALID_ARG;
+    dev_random_bytes(out->sk, AL_KX_SECRET_KEY_SIZE);
+    al_hash256 h;
+    al_hash_tagged("astrolune.dev.kx.pk", out->sk, AL_KX_SECRET_KEY_SIZE, &h);
+    al_memcpy(out->pk, h.bytes, AL_KX_PUBLIC_KEY_SIZE);
+    al_wipe(&h, sizeof(h));
+    return AL_OK;
+}
+
+al_status al_kx_shared(const al_kx_keypair *local,
+                        const al_u8 remote_pk[AL_KX_PUBLIC_KEY_SIZE],
+                        al_u8 shared_out[AL_KX_SHARED_KEY_SIZE]) {
+    if (local == NULL || remote_pk == NULL || shared_out == NULL)
+        return AL_ERR_INVALID_ARG;
+    al_hmac_ctx ctx;
+    al_hmac_init(&ctx, local->sk, AL_KX_SECRET_KEY_SIZE);
+    al_hmac_update(&ctx, "astrolune.dev.kx.shared", 24u);
+    al_hmac_update(&ctx, local->pk, AL_KX_PUBLIC_KEY_SIZE);
+    al_hmac_update(&ctx, remote_pk, AL_KX_PUBLIC_KEY_SIZE);
+    al_hash256 h;
+    al_hmac_final(&ctx, &h);
+    al_memcpy(shared_out, h.bytes, AL_KX_SHARED_KEY_SIZE);
+    al_wipe(&h, sizeof(h));
+    return AL_OK;
+}
+
+/* --------------------------------------------------------------------------
+ * AEAD (toy: HMAC-based, NOT secure — encrypt-then-MAC with truncated tag)
+ * -------------------------------------------------------------------------- */
+
+al_status al_aead_encrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
+                           const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+                           const al_u8 *ad, al_size ad_len,
+                           const al_u8 *plaintext, al_size plaintext_len,
+                           al_u8 *ciphertext_out, al_size *ciphertext_len) {
+    if (key == NULL || nonce == NULL || ciphertext_out == NULL ||
+        ciphertext_len == NULL)
+        return AL_ERR_INVALID_ARG;
+    /* XOR plaintext with keystream derived from HMAC(key, nonce). */
+    al_hmac_ctx ctx;
+    al_hmac_init(&ctx, key, AL_AEAD_KEY_SIZE);
+    al_hmac_update(&ctx, nonce, AL_AEAD_NONCE_SIZE);
+    al_hash256 stream_seed;
+    al_hmac_final(&ctx, &stream_seed);
+    for (al_size i = 0u; i < plaintext_len; ++i) {
+        ciphertext_out[i] = plaintext[i] ^ stream_seed.bytes[i % AL_HASH_SIZE];
+    }
+    /* MAC over AD + ciphertext. */
+    al_hmac_init(&ctx, key, AL_AEAD_KEY_SIZE);
+    if (ad != NULL && ad_len > 0u)
+        al_hmac_update(&ctx, ad, ad_len);
+    al_hmac_update(&ctx, ciphertext_out, plaintext_len);
+    al_hash256 mac;
+    al_hmac_final(&ctx, &mac);
+    al_memcpy(ciphertext_out + plaintext_len, mac.bytes, AL_AEAD_TAG_SIZE);
+    *ciphertext_len = plaintext_len + AL_AEAD_TAG_SIZE;
+    al_wipe(&stream_seed, sizeof(stream_seed));
+    al_wipe(&mac, sizeof(mac));
+    return AL_OK;
+}
+
+al_status al_aead_decrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
+                           const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+                           const al_u8 *ad, al_size ad_len,
+                           const al_u8 *ciphertext, al_size ciphertext_len,
+                           al_u8 *plaintext_out, al_size *plaintext_len) {
+    if (key == NULL || nonce == NULL || plaintext_out == NULL ||
+        plaintext_len == NULL)
+        return AL_ERR_INVALID_ARG;
+    if (ciphertext_len < AL_AEAD_TAG_SIZE)
+        return AL_ERR_TRUNCATED;
+    al_size msg_len = ciphertext_len - AL_AEAD_TAG_SIZE;
+    /* Verify MAC first. */
+    al_hmac_ctx ctx;
+    al_hmac_init(&ctx, key, AL_AEAD_KEY_SIZE);
+    if (ad != NULL && ad_len > 0u)
+        al_hmac_update(&ctx, ad, ad_len);
+    al_hmac_update(&ctx, ciphertext, msg_len);
+    al_hash256 mac;
+    al_hmac_final(&ctx, &mac);
+    if (memcmp(mac.bytes, ciphertext + msg_len, AL_AEAD_TAG_SIZE) != 0) {
+        al_wipe(&mac, sizeof(mac));
+        return AL_ERR_BAD_SIGNATURE;
+    }
+    /* Decrypt with keystream. */
+    al_hmac_init(&ctx, key, AL_AEAD_KEY_SIZE);
+    al_hmac_update(&ctx, nonce, AL_AEAD_NONCE_SIZE);
+    al_hash256 stream_seed;
+    al_hmac_final(&ctx, &stream_seed);
+    for (al_size i = 0u; i < msg_len; ++i) {
+        plaintext_out[i] = ciphertext[i] ^ stream_seed.bytes[i % AL_HASH_SIZE];
+    }
+    *plaintext_len = msg_len;
+    al_wipe(&stream_seed, sizeof(stream_seed));
+    al_wipe(&mac, sizeof(mac));
+    return AL_OK;
 }

@@ -39,6 +39,8 @@ typedef struct al_daemon_config {
     al_u16      rpc_port;
     /* Privileged methods that use the proposer key or stop the node. */
     al_bool     enable_unsafe_rpc;
+    /* Optional bearer token for RPC authentication (defense-in-depth). */
+    const char *rpc_token;
 
     /* Explicit override for a backend that fails the deployment gate. */
     al_bool     allow_insecure_crypto;
@@ -56,9 +58,23 @@ typedef struct al_daemon_config {
      * on the generated key file instead. */
     const char *proposer_seed;
 
+    /* Optional passphrase for encrypted-at-rest seed file. When set, the
+     * proposer seed is encrypted using libsodium's crypto_pwhash + crypto_secretbox.
+     * Requires sodium backend; ignored with dev backend. */
+    const char *proposer_passphrase;
+
     al_u32 block_interval_ms;   /* 0 disables timed production entirely */
     al_u32 round_timeout_ms;    /* consensus leader/view timeout */
     al_bool produce_empty_blocks;
+
+    /* Optional log level override: "trace", "debug", "info", "warn", "error",
+     * "fatal", or "silent". NULL means use the compiled default (info). */
+    const char *log_level;
+
+    /* Require AEAD transport encryption for P2P connections. When set, all
+     * peers must complete a KEY_EXCHANGE handshake after HELLO; peers that
+     * do not encrypt are dropped. */
+    al_bool require_encrypted_transport;
 
     /* Optional external stop switch checked every tick (e.g. SIGINT flag). */
     const volatile int *stop_flag;

@@ -93,6 +93,8 @@ al_status al_daemon_config_load_memory(const char *text, al_size len,
         config_set_string(p2p, "host", &config->p2p_host);
         config_set_port(p2p, "port", &config->p2p_port, &config->enable_p2p);
         config_set_bool(p2p, "enabled", &config->enable_p2p);
+        config_set_bool(p2p, "require_encryption",
+                        &config->require_encrypted_transport);
     }
 
     /* [rpc] */
@@ -102,6 +104,7 @@ al_status al_daemon_config_load_memory(const char *text, al_size len,
         config_set_port(rpc, "port", &config->rpc_port, &config->enable_rpc);
         config_set_bool(rpc, "enabled", &config->enable_rpc);
         config_set_bool(rpc, "unsafe_methods", &config->enable_unsafe_rpc);
+        config_set_string(rpc, "token", &config->rpc_token);
     }
 
     /* [blocks] */
@@ -115,6 +118,13 @@ al_status al_daemon_config_load_memory(const char *text, al_size len,
     const al_toml_value *proposer = al_toml_get(root, "proposer");
     if (proposer) {
         config_set_string(proposer, "seed", &config->proposer_seed);
+        config_set_string(proposer, "passphrase", &config->proposer_passphrase);
+    }
+
+    /* [log] */
+    const al_toml_value *log = al_toml_get(root, "log");
+    if (log) {
+        config_set_string(log, "level", &config->log_level);
     }
 
     /* [[bootstrap]] - array of peer endpoints */
@@ -179,4 +189,27 @@ al_status al_daemon_config_load(const char *path, al_daemon_config *config) {
     al_status s = al_daemon_config_load_memory(text, len, config);
     free(text);
     return s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Validation                                                           */
+/* ------------------------------------------------------------------ */
+
+static al_bool log_level_valid(const char *level) {
+    if (level == NULL) return AL_TRUE; /* NULL = use default */
+    return strcmp(level, "trace") == 0 || strcmp(level, "debug") == 0 ||
+           strcmp(level, "info") == 0 || strcmp(level, "warn") == 0 ||
+           strcmp(level, "error") == 0 || strcmp(level, "fatal") == 0 ||
+           strcmp(level, "silent") == 0;
+}
+
+al_status al_daemon_config_validate(const al_daemon_config *config) {
+    if (config == NULL) return AL_ERR_INVALID_ARG;
+    if (config->data_dir == NULL || config->data_dir[0] == '\0') {
+        return AL_ERR_INVALID_ARG;
+    }
+    if (!log_level_valid(config->log_level)) {
+        return AL_ERR_INVALID_ARG;
+    }
+    return AL_OK;
 }

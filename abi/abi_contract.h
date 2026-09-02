@@ -358,7 +358,7 @@ AL_ABI_OFFSET(al_vdf_output, iterations, 32);
  * failure names the first field that moved.
  * -------------------------------------------------------------------------- */
 
-AL_ABI_SIZE(al_potb_params, 144);
+AL_ABI_SIZE(al_potb_params, 168);
 AL_ABI_ALIGN(al_potb_params, 8);
 AL_ABI_OFFSET(al_potb_params, loyalty_threshold_days,     0);
 AL_ABI_OFFSET(al_potb_params, loyalty_rate_per_day,       8);
@@ -382,8 +382,12 @@ AL_ABI_OFFSET(al_potb_params, reward_flat_bp,           124);
 AL_ABI_OFFSET(al_potb_params, reward_weighted_bp,       126);
 AL_ABI_OFFSET(al_potb_params, reward_bonded_bp,         128);
 AL_ABI_OFFSET(al_potb_params, reward_max_multiple,      136);
+AL_ABI_OFFSET(al_potb_params, gini_max,                 144);
+AL_ABI_OFFSET(al_potb_params, hhi_max,                  152);
+AL_ABI_OFFSET(al_potb_params, committee_size_min,       160);
+AL_ABI_OFFSET(al_potb_params, committee_size_max,       164);
 
-AL_ABI_SIZE(al_potb_record, 152);
+AL_ABI_SIZE(al_potb_record, 192);
 AL_ABI_ALIGN(al_potb_record, 8);
 AL_ABI_OFFSET(al_potb_record, identity,               0);
 AL_ABI_OFFSET(al_potb_record, uptime_days,           32);
@@ -402,10 +406,17 @@ AL_ABI_OFFSET(al_potb_record, cluster_size,         104);
 AL_ABI_OFFSET(al_potb_record, tdi,                  112);
 AL_ABI_OFFSET(al_potb_record, challenges_issued,    120);
 AL_ABI_OFFSET(al_potb_record, challenges_passed,    124);
-AL_ABI_OFFSET(al_potb_record, asn,                  128);
-AL_ABI_OFFSET(al_potb_record, asn_peer_count,       132);
-AL_ABI_OFFSET(al_potb_record, correlation_score,    136);
-AL_ABI_OFFSET(al_potb_record, operational_bond,     144);
+AL_ABI_OFFSET(al_potb_record, challenges_missed,    128);
+AL_ABI_OFFSET(al_potb_record, asn,                  132);
+AL_ABI_OFFSET(al_potb_record, asn_peer_count,       136);
+AL_ABI_OFFSET(al_potb_record, correlation_score,    144);
+AL_ABI_OFFSET(al_potb_record, prev_asn,             152);
+AL_ABI_OFFSET(al_potb_record, prev_inbound_attestations, 156);
+AL_ABI_OFFSET(al_potb_record, prev_challenges_passed,    160);
+AL_ABI_OFFSET(al_potb_record, prev_uptime_days,          164);
+AL_ABI_OFFSET(al_potb_record, profile_snapshot_day,      168);
+AL_ABI_OFFSET(al_potb_record, behavioral_entropy,        176);
+AL_ABI_OFFSET(al_potb_record, operational_bond,          184);
 
 AL_ABI_SIZE(al_potb_network_stats, 32);
 AL_ABI_ALIGN(al_potb_network_stats, 8);
@@ -454,7 +465,7 @@ AL_ABI_ALIGN(al_genesis_allocation, 8);
 AL_ABI_OFFSET(al_genesis_allocation, address,  0);
 AL_ABI_OFFSET(al_genesis_allocation, balance, 32);
 
-AL_ABI_SIZE(al_genesis, 808);
+AL_ABI_SIZE(al_genesis, 832);
 AL_ABI_ALIGN(al_genesis, 8);
 AL_ABI_OFFSET(al_genesis, version,                   0);
 AL_ABI_OFFSET(al_genesis, chain_id,                  4);
@@ -465,8 +476,8 @@ AL_ABI_OFFSET(al_genesis, vm_stack_limit,          624);
 AL_ABI_OFFSET(al_genesis, vm_memory_limit,         632);
 AL_ABI_OFFSET(al_genesis, vm_call_depth_limit,     640);
 AL_ABI_OFFSET(al_genesis, potb,                    648);
-AL_ABI_OFFSET(al_genesis, allocations,             792);
-AL_ABI_OFFSET(al_genesis, allocation_count,        800);
+AL_ABI_OFFSET(al_genesis, allocations,             816);
+AL_ABI_OFFSET(al_genesis, allocation_count,        824);
 
 AL_ABI_SIZE(al_block_header, 344);
 AL_ABI_ALIGN(al_block_header, 8);
@@ -610,7 +621,7 @@ AL_ABI_OFFSET(al_receipt, return_data,      120);
 AL_ABI_OFFSET(al_receipt, events,           136);
 AL_ABI_OFFSET(al_receipt, event_count,      144);
 
-AL_ABI_SIZE(al_tx_context, 224);
+AL_ABI_SIZE(al_tx_context, 232);
 AL_ABI_ALIGN(al_tx_context, 8);
 AL_ABI_OFFSET(al_tx_context, chain_id,       0);
 AL_ABI_OFFSET(al_tx_context, block_height,   8);
@@ -621,6 +632,7 @@ AL_ABI_OFFSET(al_tx_context, tip_weighted,  88);
 AL_ABI_OFFSET(al_tx_context, tip_bonded,   120);
 AL_ABI_OFFSET(al_tx_context, vm,           152);
 AL_ABI_OFFSET(al_tx_context, arena,        216);
+AL_ABI_OFFSET(al_tx_context, potb_params,  224);
 
 /* --------------------------------------------------------------------------
  * 15. Layout and opcodes: vm.h

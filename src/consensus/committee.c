@@ -262,7 +262,13 @@ al_status al_potb_committee_select(const al_potb_params *p,
     if (candidates == NULL && candidate_count != 0u) {
         return AL_ERR_INVALID_ARG;
     }
-    if (p->committee_size == 0u || p->committee_size > AL_POTB_MAX_COMMITTEE) {
+    /* B3: committee size is randomized in [min, max] per epoch. */
+    al_u32 size_min = p->committee_size_min;
+    al_u32 size_max = p->committee_size_max;
+    if (size_min == 0u || size_min > size_max) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    if (size_max > AL_POTB_MAX_COMMITTEE) {
         return AL_ERR_OUT_OF_RANGE;
     }
 
@@ -292,10 +298,14 @@ al_status al_potb_committee_select(const al_potb_params *p,
     al_potb_chain chain;
     al_potb_chain_init(&chain, seed, height, AL_POTB_DOMAIN_SELECT);
 
+    /* B3: Derive a randomized committee size from the hash chain.
+     * size = size_min + (chain_u64 % (size_max - size_min + 1)). */
+    al_u64 range = (al_u64)size_max - (al_u64)size_min + 1u;
+    al_u32 want = size_min + (al_u32)(al_potb_chain_u64(&chain) % range);
+
     /* Fewer eligible nodes than the target committee is not a failure. A network
      * on its first week has a handful of qualifying nodes, and a chain that
      * refused to form a committee until it had a hundred would never start. */
-    al_u32 want = p->committee_size;
     if ((al_u64)want > (al_u64)pool_len) {
         want = (al_u32)pool_len;
     }
@@ -358,7 +368,13 @@ al_status al_potb_committee_rotate(const al_potb_params *p,
     if (candidates == NULL && candidate_count != 0u) {
         return AL_ERR_INVALID_ARG;
     }
-    if (p->committee_size == 0u || p->committee_size > AL_POTB_MAX_COMMITTEE) {
+    /* B3: committee size range check. */
+    al_u32 size_min = p->committee_size_min;
+    al_u32 size_max = p->committee_size_max;
+    if (size_min == 0u || size_min > size_max) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    if (size_max > AL_POTB_MAX_COMMITTEE) {
         return AL_ERR_OUT_OF_RANGE;
     }
     if (committee->size > AL_POTB_MAX_COMMITTEE) {
@@ -433,7 +449,11 @@ al_status al_potb_committee_rotate(const al_potb_params *p,
     al_potb_chain refill;
     al_potb_chain_init(&refill, seed, height, AL_POTB_DOMAIN_REFILL);
 
-    while (committee->size < p->committee_size && pool_len > 0u) {
+    /* B3: refill to the randomized target size (derived from the chain). */
+    al_u64 range_r = (al_u64)size_max - (al_u64)size_min + 1u;
+    al_u32 target = size_min + (al_u32)(al_potb_chain_u64(&refill) % range_r);
+
+    while (committee->size < target && pool_len > 0u) {
         al_potb_slot slot;
         if (!al_potb_draw_one(&refill, pool, &pool_len, &total, &slot)) {
             break;

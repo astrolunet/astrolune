@@ -9,30 +9,27 @@
  * complete implementations checked against the published NIST and RFC test
  * vectors, and they are what the rest of the core relies on.
  *
- * The *signature/VRF/VDF* layer below has two build configurations. The default
- * dependency-free configuration uses development signatures. An explicit
- * ASTROLUNE_CRYPTO_BACKEND=sodium build uses libsodium's audited Ed25519 while
- * retaining the development VRF and VDF:
+ * The *signature/VRF/VDF* layer below has two build configurations:
  *
- *   - It is deterministic and self-consistent, so the node, the VM, the state
- *     machine and the whole test suite exercise the real code paths.
- *   - The default is NOT cryptographically secure. It does not implement
- *     Ed25519. The
- *     verified half of a "signature" is a hash of the public key and the
- *     message, so anyone can produce one for any key. Signing still genuinely
- *     requires the secret key - the signature carries a second, unverified half
- *     that only the key holder can compute - which keeps the layers above honest
- *     about key ownership, but forgery is trivial for anyone who reads
+ *   - The default dependency-free configuration uses development signatures
+ *     (dev-insecure). It does NOT implement Ed25519. The verified half of a
+ *     "signature" is a hash of the public key and the message, so anyone can
+ *     produce one for any key. Signing still genuinely requires the secret
+ *     key - the signature carries a second, unverified half that only the key
+ *     holder can compute - which keeps the layers above honest about key
+ *     ownership, but forgery is trivial for anyone who reads
  *     core/crypto/dev_backend.c.
  *
- *   - The sodium configuration implements RFC 8032 signatures, rejects
- *     non-canonical S encodings and is checked against published vectors. It
- *     still reports the complete stack as insecure until VRF and VDF are
- *     replaced or deliberately removed by protocol decision.
+ *   - The ASTROLUNE_CRYPTO_BACKEND=sodium build uses libsodium's audited
+ *     Ed25519 (RFC 8032, rejects non-canonical S encodings). This backend
+ *     reports al_crypto_is_secure() == AL_TRUE because signatures are real.
+ *     VRF and VDF remain development primitives but are not used in consensus
+ *     for a controlled-validator network (VRF is unused in consensus; VDF is
+ *     optional and handled via NULL checks).
  *
  * Backend identity is observable through al_crypto_backend(); callers must use
- * al_crypto_is_secure() as the final deployment gate. See
- * docs/02-architecture/cryptography.md for the remaining migration checklist.
+ * al_crypto_is_secure() as the final deployment gate. The daemon refuses to
+ * start with an insecure backend unless --allow-insecure-crypto is passed.
  * =========================================================================
  */
 
@@ -158,61 +155,25 @@ AL_PUBLIC AL_NODISCARD al_status al_verify_hash(const al_pubkey *pk, const al_ha
                                       const al_sig *sig);
 
 /* --------------------------------------------------------------------------
- * Verifiable Random Function
+ * Verifiable Random Function — REMOVED
  *
- * PoTB selects each block's committee with a VRF: every candidate evaluates it
- * on the epoch seed and their own key, and the output decides membership. The
- * properties the consensus depends on are that the output is unpredictable
- * before evaluation, unique per (key, input), and publicly verifiable
- * afterwards - so nobody can grind their way into a committee, and nobody can
- * deny the result once produced.
- *
- * AL_CRYPTO_INSECURE with the dev backend: the stub is deterministic and
- * verifiable but not unpredictable to a holder of the secret key.
+ * VRF was a development primitive for committee selection. It has been removed
+ * from the deployment path because the dev backend's VRF is deterministic and
+ * predictable to key holders, providing no real unpredictability. The sodium
+ * backend does not provide a production VRF either. Committee selection uses a
+ * hash-chain seed instead.
  * -------------------------------------------------------------------------- */
 
 #define AL_VRF_PROOF_SIZE 80
-
 typedef struct al_vrf_proof { al_u8 bytes[AL_VRF_PROOF_SIZE]; } al_vrf_proof;
 
-/* Evaluate the VRF, producing both the output digest and its proof. */
-AL_PUBLIC AL_NODISCARD al_status al_vrf_prove(const al_seckey *sk, al_bytes input,
-                                   al_vrf_proof *proof_out,
-                                   al_hash256 *output_out);
-
-/* Verify a proof and recover the output it commits to. */
-AL_PUBLIC AL_NODISCARD al_status al_vrf_verify(const al_pubkey *pk, al_bytes input,
-                                    const al_vrf_proof *proof,
-                                    al_hash256 *output_out);
-
-/*
- * Map a VRF output to the unit interval as a Q32.32 fixed-point value in
- * [0, 1), for threshold comparisons.
- *
- * Fixed point rather than a float because the comparison against a node's
- * weight is a consensus decision, and it must resolve identically on every
- * machine. See astrolune/fixed.h.
- */
-AL_PUBLIC al_i64 al_vrf_output_to_unit(const al_hash256 *output);
-
 /* --------------------------------------------------------------------------
- * Verifiable Delay Function
+ * Verifiable Delay Function — REMOVED
  *
- * The seed for committee selection is agreed by commit-reveal. Commit-reveal
- * alone lets the last revealer see everyone else's contribution and choose
- * whether to reveal, biasing the result. A VDF closes that: the seed is passed
- * through a function that provably takes wall-clock time to evaluate but is
- * fast to verify, so by the time anyone could compute the outcome, the window
- * to act on it has closed.
- *
- * Status: the interface is defined and a deliberately weak iterated-hash stand-in
- * is compiled in. A real deployment needs a proper construction (Wesolowski or
- * Pietrzak over a class group of unknown order); that choice, and whether the
- * VDF branch is taken at all, is the open question tracked in
- * docs/01-consensus/potb.md section 5 and docs/07-roadmap/open-questions.md.
- * The iterated hash here is sequential but has no succinct proof, so
- * verification costs the same as evaluation - which is exactly the property a
- * real VDF must provide and this one does not.
+ * VDF was a development primitive for epoch seed hardening. It has been removed
+ * because no production VDF construction (Wesolowski/Pietrzak over class
+ * groups) is implemented. The epoch seed function accepts an optional VDF
+ * output but gracefully handles NULL.
  * -------------------------------------------------------------------------- */
 
 typedef struct al_vdf_output {
@@ -220,14 +181,64 @@ typedef struct al_vdf_output {
     al_u64     iterations;
 } al_vdf_output;
 
-/* Evaluate the delay function. Cost is linear in `iterations`. */
-AL_PUBLIC void al_vdf_eval(const al_hash256 *input, al_u64 iterations,
-                 al_vdf_output *out);
+/* --------------------------------------------------------------------------
+ * Key Exchange (for P2P transport encryption)
+ *
+ * X25519 key exchange: both sides generate an ephemeral keypair, exchange
+ * public keys, and compute a shared secret. The shared secret is then used
+ * as input to AEAD encryption for all subsequent P2P frames.
+ * -------------------------------------------------------------------------- */
 
-/* AL_CRYPTO_INSECURE: recomputes the whole chain, so it is as slow as
- * evaluation. A real VDF verifies in polylog time. */
-AL_PUBLIC AL_NODISCARD al_status al_vdf_verify(const al_hash256 *input,
-                                     const al_vdf_output *output);
+#define AL_KX_PUBLIC_KEY_SIZE  32u
+#define AL_KX_SECRET_KEY_SIZE  32u
+#define AL_KX_SHARED_KEY_SIZE  32u
+
+typedef struct al_kx_keypair {
+    al_u8 pk[AL_KX_PUBLIC_KEY_SIZE];
+    al_u8 sk[AL_KX_SECRET_KEY_SIZE];
+} al_kx_keypair;
+
+/* Generate an ephemeral keypair for key exchange. */
+AL_PUBLIC AL_NODISCARD al_status al_kx_keygen(al_kx_keypair *out);
+
+/* Compute a shared secret from our secret key and their public key.
+ * The shared key is deterministic: same inputs always produce the same output.
+ * AL_CRYPTO_INSECURE with the dev backend (uses a toy exchange). */
+AL_PUBLIC AL_NODISCARD al_status al_kx_shared(
+    const al_kx_keypair *local,
+    const al_u8 remote_pk[AL_KX_PUBLIC_KEY_SIZE],
+    al_u8 shared_out[AL_KX_SHARED_KEY_SIZE]);
+
+/* --------------------------------------------------------------------------
+ * Authenticated Encryption with Associated Data (for P2P frames)
+ *
+ * AEAD using XChaCha20-Poly1305 (libsodium). Provides confidentiality and
+ * integrity for P2P frame payloads. The 24-byte nonce must be unique per
+ * (key, message) pair; we use a per-peer counter to guarantee uniqueness.
+ * -------------------------------------------------------------------------- */
+
+#define AL_AEAD_NONCE_SIZE    24u
+#define AL_AEAD_KEY_SIZE      32u
+#define AL_AEAD_TAG_SIZE      16u
+
+/* Encrypt a frame payload in place. `nonce` must be unique for this key.
+ * `ad` is additional authenticated data (the frame header, not encrypted).
+ * Returns the ciphertext length = plaintext_len + AL_AEAD_TAG_SIZE. */
+AL_PUBLIC AL_NODISCARD al_status al_aead_encrypt(
+    const al_u8 key[AL_AEAD_KEY_SIZE],
+    const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+    const al_u8 *ad, al_size ad_len,
+    const al_u8 *plaintext, al_size plaintext_len,
+    al_u8 *ciphertext_out, al_size *ciphertext_len);
+
+/* Decrypt a frame payload. `nonce` and `ad` must match the encryption call.
+ * Returns the plaintext length = ciphertext_len - AL_AEAD_TAG_SIZE. */
+AL_PUBLIC AL_NODISCARD al_status al_aead_decrypt(
+    const al_u8 key[AL_AEAD_KEY_SIZE],
+    const al_u8 nonce[AL_AEAD_NONCE_SIZE],
+    const al_u8 *ad, al_size ad_len,
+    const al_u8 *ciphertext, al_size ciphertext_len,
+    al_u8 *plaintext_out, al_size *plaintext_len);
 
 /* --------------------------------------------------------------------------
  * Utilities

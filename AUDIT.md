@@ -1,145 +1,191 @@
-# Astrolune implementation audit
+# Astrolune current implementation audit
 
-Audit date: 2026-08-27
+Audit date: 2026-09-02 (updated)
 
-## Scope and conclusion
+This is an implementation and readiness snapshot of the current source tree.
+It is not a cryptographic review, a formal consensus proof, or a production
+capacity assessment.
 
-Astrolune is ready to be shown and operated as a controlled PoTB validator
-network. The repository contains a complete executable path from genesis and
-transactions through deterministic execution, signed consensus, durable
-finality, restart recovery and peer catch-up. Strict builds, sanitizer builds,
-unit/integration tests and multi-process quorum scenarios are automated.
+## Executive conclusion
 
-This conclusion is deliberately narrower than permissionless public deployment
-or operation with material value. The remaining boundaries are listed below and
-are documentation constraints, not hidden runtime modes.
+The repository contains a coherent deterministic blockchain core and a working
+signed-finality validator runtime for controlled experiments. The strict MSVC
+build and all 28 registered CTest entries pass, the four-validator quorum
+scenario passes, and the full two-node smoke scenario (17/17 assertions)
+passes including validator restart, contract deployment/interaction, quorum
+loss detection and mempool rollback.
 
-## Current validator path
+The project is not a permissionless, material-value mainnet. The remaining
+protocol, cryptographic, networking and operational boundaries below are
+intentional and must remain visible.
 
-- Validator public keys form a deterministic committee shared by every node.
-- The round proposer signs a block commitment bound to chain, parent, committee,
-  height and round.
-- Committee members sign PREVOTE and PRECOMMIT messages; unique signatures at
-  the two-thirds threshold produce a finality certificate.
-- Candidate blocks execute in an isolated checkpoint. Canonical state, head and
-  mempool remain unchanged until a certificate is verified.
-- A finalized block is executed again, then its certificate, state and block are
-  synchronously committed. Commit failure stops the daemon for recovery.
-- `finality.log` and `chain.log` must contain the same contiguous heights.
-  Checksums, genesis binding and parent links are verified on every open.
-- `signing.log` is synced before each local proposal or vote signature. It
-  rejects a different signing digest for the same height, round and phase after
-  either a live retry or a process restart.
-- Finalized block/certificate envelopes are gossiped and served through paged
-  range sync. Full 128-entry pages automatically request the next range.
-- Round timeouts rotate the deterministic proposer. Losing quorum clears the
-  candidate while preserving canonical state and pending transactions.
+## Implemented and verified
 
-## Security and recovery controls
+### Deterministic core
 
-- RPC defaults to loopback. Key-using `transfer` and process-control `stop` are
-  registered only with explicit `--unsafe-rpc`, which itself requires loopback.
-- P2P frames are size bounded, peer and outbox counts are bounded, handshakes
-  and idle connections expire, foreign genesis peers are rejected, and mutual
-  bootstrap connections are deduplicated.
-- A data directory is locked against concurrent writers and permanently bound
-  to its genesis hash.
-- State, block, finality and signing records are checksummed. Incomplete tail
-  writes are truncated; corruption of a complete record fails closed.
-- The daemon refuses a backend for which `al_crypto_is_secure()` is false unless
-  the operator explicitly overrides the gate.
+- C23 core types, canonical encoding, SHA-256/HMAC/HKDF and sparse Merkle state;
+- resource-metered ALVM with validation, call-depth and re-entry checks;
+- typed transactions with chain ID, nonce, expiry, fees, receipts and events;
+- genesis allocations, block/header commitments and atomic execution;
+- Trocto compiler/CLI and end-to-end contract execution tests;
+- C/C++ ABI layout, linkage and public-symbol manifest checks.
+
+### Consensus and validator runtime
+
+- signed proposals bound to chain, parent, block, committee, height and round;
+- PREVOTE/PRECOMMIT sets with unique voter membership and quorum certificates;
+- isolated candidate execution: canonical state, head and mempool change only on
+  finalization;
+- durable finality records and restart-safe signing journal for proposal,
+  prevote and precommit decisions;
+- deterministic proposer rotation on round timeout and pending-transaction
+  restoration after a failed round;
+- on-chain validator registration with a one-block activation delay, while the
+  genesis committee can still be supplied by static configuration;
+- PoTB arithmetic for TBS, TGW, NDM, COD, correlation, entropy and profile-change
+  metrics, plus Gini/HHI monitoring, slashing and appeal library APIs.
+
+### Storage and recovery
+
+- exclusive data-directory lock and permanent genesis binding;
+- checksummed state, value, node, chain and finality records;
+- incomplete tail truncation and fail-closed handling of complete-record
+  corruption;
+- synchronized durable commits with the rule that callers must reopen after an
+  I/O failure;
+- genesis materialization, snapshot export/import, pruning and a 64 MiB free
+  space reservation before state writes.
+
+### Network and RPC
+
+- bounded framed TCP P2P transport with HELLO genesis binding, keepalive,
+  duplicate suppression, bounded peer/outbox state and paged finalized catch-up;
+- optional X25519 plus AEAD frame encryption, enabled/enforced by the
+  `require_encryption` setting;
+- loopback RPC default, explicit opt-in for privileged methods, and optional
+  bearer-token authentication (`--rpc-token` or `rpc.token`);
+- bounded HTTP/JSON parsing and client/idle timeouts.
 
 ## Verification snapshot
 
-The following passed on Windows/MSVC from the current source tree:
+Executed on Windows/MSVC from this source tree:
 
-- `scripts\build.bat ci test`: strict warnings-as-errors build, 24/24 CTest
-  entries;
-- `scripts\build.bat asan test` with
-  `ASAN_OPTIONS=allocator_may_return_null=1`: 24/24 under AddressSanitizer;
-- `scripts\smoke.ps1 -Preset ci`: two validators, transaction and contract
-  execution, restart recovery, torn-finality recovery and loss of quorum;
-- `scripts\consensus-smoke.ps1 -Preset ci`: three of four configured validators
-  finalize with one offline; two of four do not finalize and retain the pending
-  transaction.
+- `cmake --workflow --preset ci`: strict warnings-as-errors MSVC build,
+  ABI-manifest check and 28/28 CTest entries passed (2026-09-02);
+- `scripts\\consensus-smoke.ps1 -Preset ci`: passed the 3/4 and 2/4 quorum
+  cases, including pending-transaction retention below quorum;
+- `scripts\\smoke.ps1 -Preset ci`: **17/17 assertions passed**. Covers
+  keygen, genesis, peering, transfer, block propagation, height agreement,
+  genesis binding, validator restart from finalized storage, finality record
+  truncation, finalised state survival, Trocto contract compilation, contract
+  deployment, counter read/write, validator disconnect observation, quorum loss
+  detection and mempool rollback;
+- `cmake --workflow --preset asan` was not runnable locally because this Windows
+  environment has no Clang C/C++ compiler. ASan/UBSan, GCC/Clang, libsodium and
+  fuzz jobs remain configured in `.github/workflows/ci.yml` and require CI or a
+  matching toolchain to verify.
 
-GitHub Actions also defines strict GCC, Clang and MSVC jobs, Linux ASan/UBSan,
-Windows ASan, a libsodium Ed25519 build, decoder fuzz smoke runs and a
-cross-toolchain determinism digest comparison.
+## Open boundaries and risks
 
-## Remaining protocol boundaries
+### 1. ~~Current restart/recovery regression~~ RESOLVED
 
-### PoTB model
+The two-node smoke scenario now passes all 17 assertions. Three root causes
+were identified and fixed: (a) `system_storage_get` in `state.c` now accepts
+NULL arenas for read-only borrows; (b) the fallback validator path in
+`helpers.c` sorts validators by pubkey to match the genesis path; (c) the
+committee is re-selected after each finalization in `consensus.c` so both
+nodes converge to the same committee. A fourth fix in `event_loop.c` handles
+proposal replacement when a competing block arrives from the rightful
+proposer. A fifth fix in `rpc.c` relays transactions via P2P after RPC
+submission.
 
-PoTB scoring, committee selection, seed mechanics and reward arithmetic are
-implemented, but their anti-domination properties are not formally proven.
-Correlation-group discovery, trusted ASN observations, the proposed
-network-relative weight cap and genesis-dilution policy remain open research.
+### 2. Cryptographic deployment boundary
 
-The running validator set is configured identically on each node. Native PoTB
-transaction schemas are consensus-encoded and stored, but registration,
-evidence adjudication, slashing and committee rotation are not yet derived from
-on-chain state. Changing the validator set therefore requires a coordinated
-network configuration change.
+The default dependency-free backend is deliberately insecure: its signatures
+are forgeable. The optional libsodium build provides real Ed25519 signatures and
+reports `al_crypto_is_secure() == AL_TRUE` for the current controlled-validator
+path. VRF and VDF functions have been removed from the codebase; only
+ABI-compatible type stubs remain in `crypto.h` for struct layout stability.
+The daemon gates the default backend behind `allow_insecure_crypto` in the
+TOML config file or `--allow-insecure-crypto` on the CLI.
 
-### Cryptography and keys
+### 3. Evidence and slashing — addressed
 
-The dependency-free signature backend and current VRF/VDF primitives are not
-suitable for an adversarial public network. The optional libsodium backend uses
-Ed25519, but the global secure gate remains false until VRF/VDF are replaced or
-removed from protocol claims.
+Evidence can be encoded, gossiped, submitted through the unsafe RPC and stored
+in system state. `al_evidence_verify` checks structure, conflict and committee
+membership. Signature verification against reconstructed vote messages is
+implemented, and evidence penalties are re-applied on restart via a durable
+replay pass in the transaction execution layer. Transaction execution stores
+the evidence record; the daemon's in-memory processing path applies the
+penalty and the durable path replays it on restart. Unit-level evidence tests
+cover creation, verification, codec roundtrip, slashing and permanent ban.
+End-to-end daemon-level evidence tests exercise the full tx execution path
+including durable penalty persistence across restart.
 
-The proposer seed is stored in the node directory. There is no HSM/OS-keystore
-adapter, remote signer, encrypted-at-rest key format or automated key rotation.
-Operators must protect data-directory access and backups.
+### 4. Validator-set governance — addressed
 
-### Forks and partitions
+Registration and activation are implemented. The native operation enum's
+governance operations (attest, challenge, challenge_response, bond_deposit,
+bond_withdraw, seed_commit, seed_reveal, committee_vote) are wired into the
+transaction execution layer with on-chain state persistence. Committee vote
+is also handled in the daemon's consensus path. There is no finalized on-chain
+governance policy for admission, withdrawal, rotation, observation authority
+or dispute resolution — this remains an intentional design boundary.
 
-The runtime is a linear finalized-chain protocol. It accepts the next parent or
-stops; it has no competing-branch database, fork choice, reorganisation or
-durable rewind. A node that misses finalized blocks catches up from peers. A
-conflicting finalized history is treated as a consensus/storage violation, not
-resolved automatically.
+### 5. PoTB remains a research model
 
-Round changes provide liveness when a proposer is absent. Byzantine partition
-behavior beyond the tested quorum boundaries has not received an independent
-consensus review.
+The scoring formulas and anti-domination metrics are implemented and tested, but
+there is no formal proof that a validator or correlation group cannot dominate.
+COD/NDM rely on observable heuristics; ASN data and correlation-group selection
+are not independently trusted oracle inputs. A patient, well-funded operator can
+spread identities, infrastructure and activity to reduce detected correlation.
+Parameter calibration and attack simulation on realistic validator
+distributions are still required.
 
-### Network and operations
+### 6. Transport and service exposure
 
-P2P transport is plain TCP. Proposal/vote signatures and genesis binding protect
-consensus objects, but transport encryption, peer admission, discovery and
-network-level denial-of-service controls are deployment responsibilities.
+P2P encryption is optional and its ephemeral key exchange is not a substitute
+for an authenticated peer identity or a PKI. Peer discovery, admission policy,
+rate limiting and network-level DoS controls remain deployment responsibilities.
+RPC has no built-in TLS. Non-loopback read-only RPC must sit behind an
+authenticated reverse proxy and network policy; privileged methods should stay
+loopback-only.
 
-JSON-RPC has no authentication or TLS. Non-loopback read-only RPC exposure must
-be protected by an authenticated reverse proxy and network policy; privileged
-methods remain loopback-only.
+### 7. Chain and operations model
 
-Storage is append-only and crash recoverable, but has no pruning, compaction,
-snapshot import/export, online backup protocol or disk-space reservation.
-Resource prices, limits, block interval and timeout values require calibration
-for the actual validator hardware and network.
-
-`protocol_day` is carried and validated as part of block execution but the
-running daemon does not yet advance it from an agreed wall-clock/epoch rule.
+The runtime accepts a single next parent and has no durable competing-branch
+database, fork choice, automatic reorganisation or canonical rewind. Snapshot
+import/export and pruning exist, but backup retention, restore drills,
+compaction policy and production monitoring still need operational validation.
+Block interval, resource prices, storage limits and committee parameters are
+development defaults until benchmarked on minimum validator hardware.
 
 ## Readiness boundary
 
 | Use | Status |
 |---|---|
-| Portfolio source repository | Ready |
-| Controlled validator network with known operators | Ready with the documented operational controls |
-| Contract and consensus experimentation | Ready |
-| Permissionless public validator admission | Not implemented |
-| Untrusted public RPC or P2P exposure | Requires external network controls and further hardening |
-| Material-value public network | Requires protocol proof/review, production VRF policy, hardened key custody and operational tooling |
+| Portfolio/source review | Ready |
+| Local development and deterministic experiments | Ready |
+| Controlled validator network | Conditional: use the documented crypto/network controls |
+| Public permissionless validator admission | Not implemented |
+| Untrusted public RPC or P2P exposure | Not ready without external authentication, TLS and network controls |
+| Material-value public network | Not ready: requires production crypto policy, consensus/security review, PoTB research and operations tooling |
 
-## Resolved findings from the initial audit
+## Release gate
 
-The hardening work closed the original strict-build failures, unsafe default RPC
-bind, remotely reachable peer-removal lifetime bug, partial-request RPC slot
-exhaustion, non-paged catch-up, incorrect block-hash lookup, storage
-continue-after-failure behavior, missing signed finality, speculative pending
-state exposure and validator double-signing across restart. Repository licensing,
-contributor guidance, security policy, ignore rules and multi-toolchain CI are
-present in the current tree.
+Before calling the implementation release-ready, require at minimum:
+
+1. ~~A green `smoke.ps1` run including restart, contract propagation and quorum
+   loss; repeat it after a clean rebuild.~~ **Done.** 17/17 assertions pass.
+2. A reproducible sodium/Ed25519 build and an explicit decision on whether
+   VRF/VDF are part of the intended deployment.
+   **Decision: VRF/VDF are removed from the implementation and are not used in
+   consensus. The sodium backend provides real Ed25519 signatures only.**
+3. Signature verification and durable replay of submitted evidence/slashing,
+   plus end-to-end tests for validator registration and removal/rotation.
+   **Signature verification added. Durable replay added. E2E daemon-level
+   evidence tests added (`test_evidence_e2e`).**
+4. CI runs for strict GCC/Clang/MSVC, ASan/UBSan, fuzz smoke and determinism
+   comparison on the exact release revision.
+5. External review of PoTB assumptions, fork/partition behavior, key custody,
+   peer authentication and production recovery procedures.

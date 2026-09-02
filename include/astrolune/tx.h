@@ -8,6 +8,7 @@
 #include "astrolune/bytes.h"
 #include "astrolune/crypto.h"
 #include "astrolune/hash.h"
+#include "astrolune/potb.h"
 #include "astrolune/state.h"
 #include "astrolune/vm.h"
 
@@ -119,6 +120,7 @@ typedef struct al_tx_context {
     al_address   tip_bonded;
     al_vm_config vm;
     al_arena    *arena;
+    const al_potb_params *potb_params;
 } al_tx_context;
 
 AL_PUBLIC AL_NODISCARD al_status al_tx_validate_shape(

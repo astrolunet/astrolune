@@ -758,7 +758,7 @@ static al_status storage_change(al_state_txn *txn,
 
 static al_status system_storage_get(const al_state_txn *txn, al_bytes key,
                                     al_arena *arena, al_bytes *out) {
-    if (!txn_valid(txn) || arena == NULL || out == NULL || key.len == 0u ||
+    if (!txn_valid(txn) || out == NULL || key.len == 0u ||
         key.len > AL_STATE_MAX_KEY_SIZE || key.data == NULL) {
         return AL_ERR_INVALID_ARG;
     }

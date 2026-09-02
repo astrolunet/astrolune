@@ -5,7 +5,7 @@
 # handlers decides what is true.
 
 astrolune_add_core_library(al_net
-    SOURCES net.c wire.c p2p.c
+    SOURCES net.c wire.c p2p_core.c p2p_handlers.c p2p_io.c
     DEPS al_base al_crypto al_potb
 )
 add_library(Astrolune::net ALIAS al_net)

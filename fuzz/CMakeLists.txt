@@ -19,6 +19,7 @@ function(astrolune_add_fuzzer name source dependency corpus)
 endfunction()
 
 astrolune_add_fuzzer(fuzz_tx fuzz_tx.c al_tx corpus/tx/golden.hex)
+target_link_libraries(fuzz_tx PRIVATE al_potb al_node)
 astrolune_add_fuzzer(fuzz_alvm fuzz_alvm.c al_vm corpus/alvm/golden.hex)
 astrolune_add_fuzzer(fuzz_block_genesis fuzz_block_genesis.c al_block
                      corpus/block_genesis/golden_block.hex)

@@ -2,6 +2,11 @@
 # complete network participant; offline subcommands simply never touch it.
 
 astrolune_add_executable(alnode
-    SOURCES alnode/main.c
+    SOURCES
+        alnode/main.c
+        alnode/helpers.c
+        alnode/chain.c
+        alnode/tx.c
+        alnode/daemon.c
     DEPS al_daemon
 )

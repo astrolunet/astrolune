@@ -4,6 +4,9 @@
 
 #include "storage.h"
 
+#include "astrolune/state.h"
+#include "internal/common.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -11,6 +14,13 @@
 #include <string.h>
 
 #if defined(AL_OS_WINDOWS)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
 #  include <direct.h>
 #  include <io.h>
 #  include <sys/locking.h>
@@ -20,6 +30,33 @@
 #  include <sys/types.h>
 #  include <unistd.h>
 #endif
+
+/* Minimum free disk space required before a write (64 MiB). If the remaining
+ * space drops below this the daemon refuses new writes rather than failing
+ * mid-write on a full disk. */
+#define STORAGE_MIN_FREE_SPACE  (64u * 1024u * 1024u)
+
+/* Check that at least `needed` bytes are available on the filesystem that
+ * contains `path`. Returns AL_OK if there is enough space, or
+ * AL_ERR_RESOURCE_LIMIT if the disk is too full. Errors querying the OS are
+ * silently ignored — the write proceeds rather than blocking on a platform
+ * quirk. */
+static al_status check_disk_space(const char *path, al_u64 needed) {
+    if (path == NULL) return AL_OK;
+#if defined(AL_OS_WINDOWS)
+    ULARGE_INTEGER free_bytes;
+    if (GetDiskFreeSpaceExA(path, &free_bytes, NULL, NULL)) {
+        if (free_bytes.QuadPart < needed) return AL_ERR_RESOURCE_LIMIT;
+    }
+#else
+    struct statvfs st;
+    if (statvfs(path, &st) == 0) {
+        al_u64 free = (al_u64)st.f_bavail * (al_u64)st.f_frsize;
+        if (free < needed) return AL_ERR_RESOURCE_LIMIT;
+    }
+#endif
+    return AL_OK;
+}
 
 #define STORAGE_FORMAT_VERSION 1u
 #define STORAGE_MANIFEST_SIZE  72u
@@ -69,6 +106,7 @@ typedef struct al_node_storage_impl {
     al_u32            chain_id;
     al_block_header   head;
     al_bool           has_head;
+    char              directory[512];
 } al_node_storage_impl;
 
 static void put_u16(al_u8 *out, al_u16 value) {
@@ -585,6 +623,10 @@ static al_status disk_node_put(void *context, const al_hash256 *hash,
     }
     AL_TRY(index_prepare_insert(&impl->nodes));
 
+    /* Check disk space before state writes. */
+    AL_TRY(check_disk_space(impl->directory,
+                            (al_u64)STORAGE_NODE_SIZE + STORAGE_MIN_FREE_SPACE));
+
     al_u8 record[STORAGE_NODE_SIZE];
     memset(record, 0, sizeof(record));
     memcpy(record, NODE_MAGIC, sizeof(NODE_MAGIC));
@@ -669,6 +711,13 @@ static al_status disk_value_put(void *context, const al_hash256 *hash,
         return al_bytes_eq(stored, value) ? AL_OK : AL_ERR_STATE_CORRUPT;
     }
     AL_TRY(index_prepare_insert(&impl->values));
+
+    /* Check disk space before state writes. */
+    al_u64 val_write_size = (al_u64)STORAGE_VALUE_HEADER +
+                            (al_u64)value.len +
+                            (al_u64)STORAGE_CHECKSUM_SIZE;
+    AL_TRY(check_disk_space(impl->directory,
+                            val_write_size + STORAGE_MIN_FREE_SPACE));
 
     al_u8 header[STORAGE_VALUE_HEADER];
     memset(header, 0, sizeof(header));
@@ -1064,6 +1113,12 @@ al_status al_node_storage_open(al_node_storage *storage,
     al_genesis_hash(genesis, &impl->genesis_hash);
     impl->initial_root = genesis->initial_state_root;
     impl->chain_id = genesis->chain_id;
+    {
+        size_t dlen = strlen(directory);
+        if (dlen < sizeof(impl->directory)) {
+            memcpy(impl->directory, directory, dlen + 1u);
+        }
+    }
 
     FILE *manifest = NULL;
     al_status status = open_file(directory, "LOCK", &impl->lock_file);
@@ -1233,6 +1288,14 @@ al_status al_node_storage_commit_block(al_node_storage *storage,
 
     AL_TRY(block_offsets_prepare(impl));
     AL_TRY(sync_state(impl));
+
+    /* Refuse to write if the disk is critically low on space. */
+    al_u64 write_size = (al_u64)STORAGE_CHAIN_HEADER +
+                        (al_u64)encoded_block.len +
+                        (al_u64)STORAGE_CHECKSUM_SIZE;
+    AL_TRY(check_disk_space(impl->directory,
+                            write_size + STORAGE_MIN_FREE_SPACE));
+
     al_u64 offset = 0u;
     AL_TRY(file_size(impl->chain_file, &offset));
     al_status status = write_exact(impl->chain_file, record_header,
@@ -1312,6 +1375,13 @@ al_status al_node_storage_commit_finalized_block(
     al_sha256_update(&checksum_context, encoded_certificate.data,
                      encoded_certificate.len);
     al_sha256_final(&checksum_context, &checksum);
+
+    /* Refuse to write if the disk is critically low on space. */
+    al_u64 fin_write_size = (al_u64)STORAGE_FINALITY_HEADER +
+                            (al_u64)encoded_certificate.len +
+                            (al_u64)STORAGE_CHECKSUM_SIZE;
+    AL_TRY(check_disk_space(impl->directory,
+                            fin_write_size + STORAGE_MIN_FREE_SPACE));
 
     al_u64 finality_offset = 0u;
     AL_TRY(file_size(impl->finality_file, &finality_offset));
@@ -1433,4 +1503,280 @@ al_status al_node_storage_prepare_genesis(al_node_storage *storage,
         return AL_ERR_STATE_CORRUPT;
     }
     return AL_OK;
+}
+
+/* --------------------------------------------------------------------------
+ * Snapshot export / import
+ * -------------------------------------------------------------------------- */
+
+#define SNAPSHOT_MAGIC       "ALSS"
+#define SNAPSHOT_VERSION     1u
+
+static al_status snapshot_export_block(al_node_storage_impl *impl,
+                                       al_u64 offset, FILE *out) {
+    al_u8 chain_header[STORAGE_CHAIN_HEADER];
+    al_u64 payload_size = 0u;
+    AL_TRY(chain_record_header(impl->chain_file, offset, chain_header,
+                               &payload_size));
+    al_u8 *payload = (al_u8 *)malloc((al_size)payload_size);
+    if (payload == NULL) return AL_ERR_OUT_OF_MEMORY;
+    AL_TRY(file_seek(impl->chain_file, offset + STORAGE_CHAIN_HEADER));
+    AL_TRY(read_exact(impl->chain_file, payload, (al_size)payload_size));
+    al_size written = fwrite(payload, 1u, (al_size)payload_size, out);
+    free(payload);
+    return written == (al_size)payload_size ? AL_OK : AL_ERR_IO;
+}
+
+al_status al_node_storage_export_snapshot(al_node_storage *storage,
+                                          const char *path) {
+    if (storage == NULL || storage->impl == NULL || path == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    al_node_storage_impl *impl = (al_node_storage_impl *)storage->impl;
+    if (!impl->has_head) return AL_ERR_NOT_FOUND;
+
+    FILE *out = fopen(path, "wb");
+    if (out == NULL) return AL_ERR_IO;
+
+    al_status status = AL_OK;
+
+    /* Header: magic + version + genesis_hash + height + state_root. */
+    al_u8 header[4u + 4u + AL_HASH_SIZE + 8u + AL_HASH_SIZE];
+    memset(header, 0, sizeof(header));
+    memcpy(header, SNAPSHOT_MAGIC, 4u);
+    put_u16(header + 4u, SNAPSHOT_VERSION);
+    memcpy(header + 8u, impl->genesis_hash.bytes, AL_HASH_SIZE);
+    al_store_le64(header + 8u + AL_HASH_SIZE, impl->head.height);
+    memcpy(header + 8u + AL_HASH_SIZE + 8u, impl->head.state_root.bytes,
+           AL_HASH_SIZE);
+    if (fwrite(header, 1u, sizeof(header), out) != sizeof(header)) {
+        status = AL_ERR_IO;
+        goto done;
+    }
+
+    /* Encode and write the block header + body (as stored in chain.log). */
+    AL_TRY(snapshot_export_block(impl,
+                                 impl->block_offsets[(al_size)impl->head.height],
+                                 out));
+
+    /* Write the finality certificate if finalized. */
+    if (impl->finality_count > (al_size)impl->head.height) {
+        al_u8 fin_header[STORAGE_FINALITY_HEADER];
+        al_u64 fin_payload_size = 0u;
+        AL_TRY(finality_record_header(
+            impl->finality_file,
+            impl->finality_offsets[(al_size)impl->head.height],
+            fin_header, &fin_payload_size));
+        al_u8 *fin_payload = (al_u8 *)malloc((al_size)fin_payload_size);
+        if (fin_payload == NULL) { status = AL_ERR_OUT_OF_MEMORY; goto done; }
+        AL_TRY(file_seek(impl->finality_file,
+                         impl->finality_offsets[(al_size)impl->head.height] +
+                             STORAGE_FINALITY_HEADER));
+        AL_TRY(read_exact(impl->finality_file, fin_payload,
+                          (al_size)fin_payload_size));
+        if (fwrite(fin_payload, 1u, (al_size)fin_payload_size, out) !=
+            (al_size)fin_payload_size) {
+            free(fin_payload);
+            status = AL_ERR_IO;
+            goto done;
+        }
+        free(fin_payload);
+    } else {
+        /* No finality certificate: write zero-length marker. */
+        al_u8 zero[8u] = {0};
+        if (fwrite(zero, 1u, 8u, out) != 8u) {
+            status = AL_ERR_IO;
+            goto done;
+        }
+    }
+
+done:
+    if (fclose(out) != 0 && status == AL_OK) status = AL_ERR_IO;
+    return status;
+}
+
+al_status al_node_storage_import_snapshot(al_node_storage *storage,
+                                          const al_genesis *genesis,
+                                          al_state *state, al_arena *arena,
+                                          const char *path) {
+    if (storage == NULL || storage->impl == NULL || genesis == NULL ||
+        state == NULL || arena == NULL || path == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    al_node_storage_impl *impl = (al_node_storage_impl *)storage->impl;
+    if (impl->block_count != 0u) {
+        return AL_ERR_STATE_CORRUPT; /* must be fresh */
+    }
+
+    FILE *in = fopen(path, "rb");
+    if (in == NULL) return AL_ERR_NOT_FOUND;
+
+    al_status status = AL_OK;
+
+    /* Read header. */
+    al_u8 header[4u + 4u + AL_HASH_SIZE + 8u + AL_HASH_SIZE];
+    if (fread(header, 1u, sizeof(header), in) != sizeof(header)) {
+        status = AL_ERR_TRUNCATED;
+        goto done;
+    }
+    if (memcmp(header, SNAPSHOT_MAGIC, 4u) != 0 ||
+        get_u16(header + 4u) != SNAPSHOT_VERSION) {
+        status = AL_ERR_STATE_CORRUPT;
+        goto done;
+    }
+    al_hash256 snap_genesis;
+    memcpy(snap_genesis.bytes, header + 8u, AL_HASH_SIZE);
+    if (!al_hash_eq(&snap_genesis, &impl->genesis_hash)) {
+        status = AL_ERR_CONSENSUS_VIOLATION;
+        goto done;
+    }
+    al_height snap_height = al_load_le64(header + 8u + AL_HASH_SIZE);
+
+    /* Read block payload size (varint) then block bytes. */
+    {
+        al_u8 size_buf[10];
+        al_size nread = fread(size_buf, 1u, sizeof(size_buf), in);
+        if (nread == 0) { status = AL_ERR_TRUNCATED; goto done; }
+        al_reader reader;
+        al_reader_init(&reader, al_bytes_make(size_buf, nread));
+        al_u64 block_size = al_reader_varint(&reader);
+        if (al_reader_status(&reader) != AL_OK ||
+            block_size > (16u * 1024u * 1024u)) {
+            status = AL_ERR_STATE_CORRUPT;
+            goto done;
+        }
+        al_u8 *block_data = (al_u8 *)malloc((al_size)block_size);
+        if (block_data == NULL) { status = AL_ERR_OUT_OF_MEMORY; goto done; }
+        if (fread(block_data, 1u, (al_size)block_size, in) !=
+            (al_size)block_size) {
+            free(block_data);
+            status = AL_ERR_TRUNCATED;
+            goto done;
+        }
+        al_state_snapshot state_snap = al_state_snapshot_take(state);
+        status = al_node_storage_commit_block(
+            storage, state, al_bytes_make(block_data, (al_size)block_size));
+        if (status != AL_OK) {
+            (void)al_state_snapshot_restore(state, state_snap);
+            free(block_data);
+            goto done;
+        }
+        free(block_data);
+    }
+
+    /* Read finality certificate if present. */
+    {
+        al_u8 fin_size_buf[10];
+        al_size nread = fread(fin_size_buf, 1u, sizeof(fin_size_buf), in);
+        if (nread == 0) { status = AL_ERR_TRUNCATED; goto done; }
+        al_reader reader;
+        al_reader_init(&reader, al_bytes_make(fin_size_buf, nread));
+        al_u64 cert_size = al_reader_varint(&reader);
+        if (al_reader_status(&reader) != AL_OK) {
+            status = AL_ERR_TRUNCATED;
+            goto done;
+        }
+        if (cert_size > 0u) {
+            if (cert_size > AL_FINALITY_CERTIFICATE_MAX_ENCODED_SIZE) {
+                status = AL_ERR_STATE_CORRUPT;
+                goto done;
+            }
+            al_u8 *cert_data = (al_u8 *)malloc((al_size)cert_size);
+            if (cert_data == NULL) {
+                status = AL_ERR_OUT_OF_MEMORY;
+                goto done;
+            }
+            if (fread(cert_data, 1u, (al_size)cert_size, in) !=
+                (al_size)cert_size) {
+                free(cert_data);
+                status = AL_ERR_TRUNCATED;
+                goto done;
+            }
+            al_size block_size = 0u;
+            status = al_node_storage_read_block(
+                storage, snap_height, (al_bytes_mut){NULL, 0}, &block_size);
+            if (status != AL_ERR_BUFFER_TOO_SMALL) {
+                free(cert_data);
+                goto done;
+            }
+            al_u8 *block_buf = (al_u8 *)malloc(block_size);
+            if (block_buf == NULL) {
+                free(cert_data);
+                status = AL_ERR_OUT_OF_MEMORY;
+                goto done;
+            }
+            status = al_node_storage_read_block(
+                storage, snap_height,
+                (al_bytes_mut){block_buf, block_size}, &block_size);
+            if (status != AL_OK) {
+                free(cert_data);
+                free(block_buf);
+                goto done;
+            }
+            al_state_snapshot state_snap = al_state_snapshot_take(state);
+            status = al_node_storage_commit_finalized_block(
+                storage, state,
+                al_bytes_make(block_buf, block_size),
+                al_bytes_make(cert_data, (al_size)cert_size));
+            if (status != AL_OK) {
+                (void)al_state_snapshot_restore(state, state_snap);
+            }
+            free(cert_data);
+            free(block_buf);
+            if (status != AL_OK) goto done;
+        }
+    }
+
+done:
+    if (fclose(in) != 0 && status == AL_OK) status = AL_ERR_IO;
+    return status;
+}
+
+/* --------------------------------------------------------------------------
+ * Pruning
+ * -------------------------------------------------------------------------- */
+
+al_status al_node_storage_prune(al_node_storage *storage,
+                                al_height keep_height) {
+    if (storage == NULL || storage->impl == NULL) {
+        return AL_ERR_INVALID_ARG;
+    }
+    al_node_storage_impl *impl = (al_node_storage_impl *)storage->impl;
+
+    al_height prune_to = keep_height;
+    if (prune_to > (al_height)impl->finality_count) {
+        prune_to = (al_height)impl->finality_count;
+    }
+    if (prune_to == 0u) return AL_OK;
+
+    /* Truncate chain.log. */
+    if ((al_size)prune_to < impl->block_count) {
+        al_u64 truncate_offset =
+            impl->block_offsets[(al_size)prune_to];
+        AL_TRY(file_truncate(impl->chain_file, truncate_offset));
+        al_size remove_count = (al_size)prune_to;
+        if (remove_count < impl->block_count) {
+            memmove(impl->block_offsets,
+                    impl->block_offsets + remove_count,
+                    (impl->block_count - remove_count) * sizeof(al_u64));
+        }
+        impl->block_count -= remove_count;
+    }
+
+    /* Truncate finality.log. */
+    if ((al_size)prune_to < impl->finality_count) {
+        al_u64 truncate_offset =
+            impl->finality_offsets[(al_size)prune_to];
+        AL_TRY(file_truncate(impl->finality_file, truncate_offset));
+        al_size remove_count = (al_size)prune_to;
+        if (remove_count < impl->finality_count) {
+            memmove(impl->finality_offsets,
+                    impl->finality_offsets + remove_count,
+                    (impl->finality_count - remove_count) * sizeof(al_u64));
+        }
+        impl->finality_count -= remove_count;
+    }
+
+    AL_TRY(file_sync(impl->chain_file));
+    return file_sync(impl->finality_file);
 }

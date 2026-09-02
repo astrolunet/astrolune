@@ -3,6 +3,11 @@
 
 #include <string.h>
 
+/* protocol_day advances every AL_PROTOCOL_DAY_BLOCKS blocks. With a 10-second
+ * block interval, 14400 blocks = 1 day. This is a consensus rule: all nodes
+ * must agree on the advancement schedule. */
+#define AL_PROTOCOL_DAY_BLOCKS 14400u
+
 /* Worst case genesis encoding: the fixed parameter block plus a full
  * allocation table. al_genesis_hash relies on this fitting on the stack. */
 #define AL_GENESIS_MAX_ENCODED_SIZE                                             \
@@ -47,6 +52,11 @@ static void write_potb(al_writer *writer, const al_potb_params *p) {
     al_writer_u16(writer, p->reward_weighted_bp);
     al_writer_u16(writer, p->reward_bonded_bp);
     al_writer_u64(writer, (al_u64)p->reward_max_multiple);
+    /* v2: anti-domination + randomized committee size (A1, B3) */
+    al_writer_u64(writer, (al_u64)p->gini_max);
+    al_writer_u64(writer, (al_u64)p->hhi_max);
+    al_writer_u32(writer, p->committee_size_min);
+    al_writer_u32(writer, p->committee_size_max);
 }
 
 static void read_potb(al_reader *reader, al_potb_params *p) {
@@ -72,6 +82,19 @@ static void read_potb(al_reader *reader, al_potb_params *p) {
     p->reward_weighted_bp = al_reader_u16(reader);
     p->reward_bonded_bp = al_reader_u16(reader);
     p->reward_max_multiple = (al_fixed)al_reader_u64(reader);
+    /* v2: anti-domination + randomized committee size (A1, B3).
+     * If the reader has no remaining data (old format), use defaults. */
+    if (al_reader_remaining(reader) < 8u + 8u + 4u + 4u) {
+        p->gini_max = al_fixed_from_ratio(6, 10);
+        p->hhi_max  = al_fixed_from_ratio(15, 100);
+        p->committee_size_min = 90u;
+        p->committee_size_max = 110u;
+    } else {
+        p->gini_max = (al_fixed)al_reader_u64(reader);
+        p->hhi_max = (al_fixed)al_reader_u64(reader);
+        p->committee_size_min = al_reader_u32(reader);
+        p->committee_size_max = al_reader_u32(reader);
+    }
 }
 
 static void genesis_write(const al_genesis *genesis, al_writer *writer) {
@@ -412,6 +435,11 @@ static al_status block_derive_header(al_block *block,
         AL_TRY(al_fee_next_base_prices(parent->base_prices, parent->resources,
                                        genesis->fees.target,
                                        &block->header.base_prices));
+        /* Advance protocol_day every AL_PROTOCOL_DAY_BLOCKS blocks. */
+        block->header.protocol_day =
+            (al_u32)(parent->protocol_day +
+            (block->header.height / AL_PROTOCOL_DAY_BLOCKS -
+             parent->height / AL_PROTOCOL_DAY_BLOCKS));
     }
 
     al_block_transaction_root(block, &block->header.tx_root);
@@ -436,6 +464,7 @@ static al_status block_apply_transactions(
     context.vm.call_depth_limit = genesis->vm_call_depth_limit;
     context.vm.resource_limit = genesis->fees.block_limit;
     context.vm.schedule = &genesis->schedule;
+    context.potb_params = &genesis->potb;
 
     for (al_size i = 0u; i < block->transaction_count; ++i) {
         context.arena = arena;

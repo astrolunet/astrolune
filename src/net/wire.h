@@ -24,6 +24,7 @@
 #define ASTROLUNE_NET_WIRE_H
 
 #include "astrolune/block.h"
+#include "astrolune/evidence.h"
 #include "finality.h"
 
 AL_EXTERN_C_BEGIN
@@ -50,6 +51,8 @@ typedef enum al_wire_type {
     AL_WIRE_PROPOSAL  = 8,  /* signed consensus proposal plus block        */
     AL_WIRE_VOTE      = 9,  /* signed prevote or precommit                  */
     AL_WIRE_FINALITY  = 10, /* finalized block plus quorum certificate       */
+    AL_WIRE_EVIDENCE  = 11, /* double-sign evidence gossip                   */
+    AL_WIRE_KEY_EXCHANGE = 12, /* ephemeral X25519 key for transport encryption */
     AL_WIRE_TYPE_SENTINEL = 0x7fffffff
 } al_wire_type;
 
@@ -140,7 +143,32 @@ typedef struct al_wire_proposal {
 AL_NODISCARD al_status al_wire_proposal_encode(
     const al_wire_proposal *proposal, al_bytes_mut out, al_size *written);
 AL_NODISCARD al_status al_wire_proposal_decode(al_bytes payload,
-                                               al_wire_proposal *out);
+                                                al_wire_proposal *out);
+
+/* --- EVIDENCE ------------------------------------------------------------- */
+/* Encoded as: u16 kind, u32 chain_id, u64 height, u32 round,
+ * then two vote structs (u8 phase, hash256 block_hash, hash256 committee_hash,
+ * pubkey voter, signature signature). */
+typedef struct al_wire_evidence {
+    al_evidence evidence;
+} al_wire_evidence;
+
+void al_wire_evidence_encode(al_writer *writer, const al_wire_evidence *ev);
+AL_NODISCARD al_status al_wire_evidence_decode(al_bytes payload,
+                                                al_wire_evidence *out);
+
+/* --- KEY EXCHANGE ---------------------------------------------------------- */
+/* Ephemeral X25519 public key for transport encryption. Sent after HELLO.
+ * Once both peers have exchanged keys, all subsequent frames are AEAD-encrypted
+ * using a shared secret derived from the X25519 exchange. */
+typedef struct al_wire_key_exchange {
+    al_u8 ephemeral_pk[AL_KX_PUBLIC_KEY_SIZE];
+} al_wire_key_exchange;
+
+void al_wire_key_exchange_encode(al_writer *writer,
+                                 const al_wire_key_exchange *kx);
+AL_NODISCARD al_status al_wire_key_exchange_decode(al_bytes payload,
+                                                    al_wire_key_exchange *out);
 
 AL_EXTERN_C_END
 

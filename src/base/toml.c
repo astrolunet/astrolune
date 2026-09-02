@@ -443,6 +443,11 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
                 parser_advance(&parser);
 
             al_size path_len = (al_size)(parser.cur.start - path_start);
+            /* Strip trailing whitespace before ']'. */
+            while (path_len > 0 &&
+                   (path_start[path_len - 1] == ' ' ||
+                    path_start[path_len - 1] == '\t'))
+                path_len--;
             if (path_len == 0) { parser.status = AL_ERR_MALFORMED; break; }
 
             /* Resolve the path: create intermediate tables as needed. */
@@ -463,8 +468,12 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
             }
 
             al_size full_key_len = (al_size)(parser.cur.start - key_start);
-            /* Strip trailing dot if any. */
-            while (full_key_len > 0 && key_start[full_key_len - 1] == '.')
+            /* Strip trailing whitespace / dot (space before '=' is allowed in
+             * TOML: `key = value`). */
+            while (full_key_len > 0 &&
+                   (key_start[full_key_len - 1] == ' ' ||
+                    key_start[full_key_len - 1] == '\t' ||
+                    key_start[full_key_len - 1] == '.'))
                 full_key_len--;
 
             if (!parser_expect(&parser, TOK_EQUALS)) break;

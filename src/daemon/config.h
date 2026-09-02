@@ -24,6 +24,11 @@ AL_NODISCARD al_status al_daemon_config_load_memory(const char *text,
                                                      al_size len,
                                                      al_daemon_config *config);
 
+/* Validate a loaded configuration. Returns AL_OK when the config is usable,
+ * AL_ERR_INVALID_ARG when a required field is missing or an enum value is
+ * out of range. */
+AL_NODISCARD al_status al_daemon_config_validate(const al_daemon_config *config);
+
 AL_EXTERN_C_END
 
 #endif /* ASTROLUNE_DAEMON_CONFIG_H */

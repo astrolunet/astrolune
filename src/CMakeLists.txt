@@ -35,10 +35,12 @@ astrolune_add_core_library(al_base
 if(ASTROLUNE_CRYPTO_BACKEND STREQUAL "dev")
   set(ASTROLUNE_SIGNATURE_SOURCE crypto/dev_backend.c)
   set(ASTROLUNE_CRYPTO_PRIVATE_DEPS "")
+  set(ASTROLUNE_CRYPTO_DEFINES "")
 elseif(ASTROLUNE_CRYPTO_BACKEND STREQUAL "sodium")
   find_package(Sodium 1.0.18 REQUIRED)
   set(ASTROLUNE_SIGNATURE_SOURCE crypto/sodium_backend.c)
   set(ASTROLUNE_CRYPTO_PRIVATE_DEPS Sodium::Sodium)
+  set(ASTROLUNE_CRYPTO_DEFINES ASTROLUNE_HAS_SODIUM)
 else()
   message(FATAL_ERROR
       "Unknown ASTROLUNE_CRYPTO_BACKEND='${ASTROLUNE_CRYPTO_BACKEND}'. "
@@ -51,13 +53,14 @@ astrolune_add_core_library(al_crypto
         crypto/hmac.c
         crypto/merkle.c
         crypto/keys.c
-        crypto/dev_vrf_vdf.c
+        crypto/signer.c
         ${ASTROLUNE_SIGNATURE_SOURCE}
     DEPS
         al_base
     PRIVATE_DEPS
         ${ASTROLUNE_CRYPTO_PRIVATE_DEPS}
 )
+target_compile_definitions(al_crypto PRIVATE ${ASTROLUNE_CRYPTO_DEFINES})
 
 # --- al_potb: the consensus scoring, committee selection and rewards ----------
 #
@@ -69,11 +72,16 @@ astrolune_add_core_library(al_crypto
 astrolune_add_core_library(al_potb
     SOURCES
         consensus/score.c
+        consensus/score_anti_domination.c
+        consensus/score_slash.c
         consensus/committee.c
         consensus/finality.c
+        consensus/validator_set.c
+        consensus/evidence.c
     DEPS
         al_base
         al_crypto
+        al_state
 )
 target_include_directories(al_potb PUBLIC
     "${PROJECT_SOURCE_DIR}/src/consensus")
@@ -84,7 +92,10 @@ astrolune_add_core_library(al_state
 )
 
 astrolune_add_core_library(al_vm
-    SOURCES vm/vm.c
+    SOURCES
+        vm/vm.c
+        vm/decode.c
+        vm/container.c
     DEPS al_base al_crypto al_state
 )
 
