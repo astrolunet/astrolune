@@ -40,7 +40,7 @@ Full documentation: [astrolunet/astrolune-docs](https://github.com/astrolunet/as
 
 **Consensus: PoTB — Proof of Trusted Behavior.** A validator's weight comes
 from uptime, observed honest behaviour and its position in the trust graph —
-never from hashrate or stake. See the [PoTB spec](https://landing-one-virid-56.vercel.app/en/docs/01-consensus/potb)
+never from hashrate or stake. See the [PoTB spec](https://github.com/astrolunet/astrolune-docs/blob/main/01-consensus/potb.md)
 for the full model.
 
 > **Controlled-network release.** This is not a public mainnet. The validator
@@ -50,7 +50,7 @@ for the full model.
 > the sodium build swaps in real Ed25519. VRF and VDF are not implemented or
 > used by consensus; `al_crypto_is_secure()` describes the active signature
 > backend only.
-> See the [cryptography doc](https://landing-one-virid-56.vercel.app/en/docs/02-architecture/cryptography)
+> See the [cryptography doc](https://github.com/astrolunet/astrolune-docs/blob/main/02-architecture/cryptography.md)
 > and [AUDIT.md](AUDIT.md) for the exact readiness boundary.
 
 ## Why C23, no dependencies
