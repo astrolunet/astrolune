@@ -49,8 +49,8 @@ al_potb_params al_potb_params_default(void) {
     /* --- Committee -------------------------------------------------------- */
     p.committee_size            = 100u;
     p.committee_lifetime_blocks = 10u;
-p.committee_size_min       = 75u;
-p.committee_size_max       = 125u;
+    p.committee_size_min       = 75u;
+    p.committee_size_max       = 125u;
     p.rotation_fraction         = AL_FX(1, 10);
 
     p.min_tbs_candidate = AL_FX(3, 1);   /* ~2 weeks of correct operation */
