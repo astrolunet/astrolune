@@ -509,8 +509,17 @@ al_status al_toml_parse(const char *text, al_toml_value **out) {
                     table_add(&parser, parent, leaf, val);
                 }
             } else {
-                char *k = toml_alloc_str(parser.alloc, key_start, full_key_len);
-                table_add(&parser, section, k, val);
+                /* table_add duplicates the key into the parse result.  Pass
+                 * the source slice directly so we do not leak a temporary
+                 * allocation for every ordinary assignment. */
+                char key[256];
+                if (full_key_len >= sizeof(key)) {
+                    parser.status = AL_ERR_MALFORMED;
+                    break;
+                }
+                memcpy(key, key_start, full_key_len);
+                key[full_key_len] = '\0';
+                table_add(&parser, section, key, val);
             }
             continue;
         }
