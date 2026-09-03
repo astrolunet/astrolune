@@ -119,6 +119,7 @@ bind.
 - `src/`: VM, state, transactions, blocks, node, storage, networking and RPC
 - `tools/`: Trocto/Regol contract compiler
 - `examples/`: sample Trocto contracts (counter, token, math)
+- [`astrolunet/astrolune-docs`](https://github.com/astrolunet/astrolune-docs): technical and protocol documentation
 - `tests/` and `fuzz/`: unit, integration and decoder coverage
 - `AUDIT.md`: current limitations and readiness boundary
 
