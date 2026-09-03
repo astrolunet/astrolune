@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml/badge.svg)](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/astrolunet/astrolune)](https://github.com/astrolunet/astrolune/releases/latest)
-[![Documentation](https://img.shields.io/badge/docs-online-0A7B83.svg)](https://landing-one-virid-56.vercel.app/docs)
+[![Documentation](https://img.shields.io/badge/docs-GitHub-0A7B83.svg)](https://github.com/astrolunet/astrolune-docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![C23](https://img.shields.io/badge/C-23-00599C.svg)](https://en.cppreference.com/w/c/23)
 
@@ -36,7 +36,7 @@ contract Counter {
 trocto examples/counter.tc -o counter.bin
 ```
 
-Full docs: [landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs)
+Full documentation: [astrolunet/astrolune-docs](https://github.com/astrolunet/astrolune-docs) — the rendered documentation site is also available at [landing-one-virid-56.vercel.app/docs](https://landing-one-virid-56.vercel.app/docs).
 
 **Consensus: PoTB — Proof of Trusted Behavior.** A validator's weight comes
 from uptime, observed honest behaviour and its position in the trust graph —
