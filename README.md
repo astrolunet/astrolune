@@ -118,7 +118,7 @@ bind.
 ### Core
 - `include/astrolune/`: public C ABI and deterministic core types
 - `src/`: VM, state, transactions, blocks, node, storage, networking and RPC
-- `tools/trocto/`: Trocto/Regol contract compiler
+- `tools/trocto/`: Trocto/Regol contract compiler (git submodule → [astrolunet/trocto](https://github.com/astrolunet/trocto))
 - `examples/`: sample Trocto contracts (counter, token, math)
 - `tests/` and `fuzz/`: unit, integration and decoder coverage
 
@@ -126,19 +126,26 @@ bind.
 
 | Repository | Description |
 |---|---|
-| [`trocto`](https://github.com/astrolunet/trocto) | Contract language compiler (Trocto/Regol → ALVM) |
-| [`astrolune-contracts`](https://github.com/astrolunet/astrolune-contracts) | Smart contracts (DNS, hosting, share) |
-| [`astrolune-dns`](https://github.com/astrolunet/astrolune-dns) | Local DNS resolver + event indexer |
-| [`astrolune-share`](https://github.com/astrolunet/astrolune-share) | File chunking, Merkle manifests, encryption |
-| [`astrolune-proxy`](https://github.com/astrolunet/astrolune-proxy) | SOCKS5 proxy, reverse tunnel, gateway |
-| [`astrolune-landing`](https://github.com/astrolunet/astrolune-landing) | Landing page (Next.js) |
-| [`astrolune-id`](https://github.com/astrolunet/astrolune-id) | Identity/wallet package |
+| [`tools/trocto`](https://github.com/astrolunet/trocto) | Contract language compiler (Trocto/Regol → ALVM) |
 
 Clone with submodules:
 
 ```bash
 git clone --recurse-submodules https://github.com/astrolunet/astrolune.git
 ```
+
+### Ecosystem (separate repositories)
+
+These are independent services that run alongside the blockchain:
+
+| Repository | Description |
+|---|---|
+| [`astrolune-dns`](https://github.com/astrolunet/astrolune-dns) | Local DNS resolver + event indexer |
+| [`astrolune-share`](https://github.com/astrolunet/astrolune-share) | File chunking, Merkle manifests, encryption |
+| [`astrolune-proxy`](https://github.com/astrolunet/astrolune-proxy) | SOCKS5 proxy, reverse tunnel, gateway |
+| [`astrolune-contracts`](https://github.com/astrolunet/astrolune-contracts) | Smart contracts (DNS, hosting, share) |
+| [`astrolune-landing`](https://github.com/astrolunet/astrolune-landing) | Landing page (Next.js) |
+| [`astrolune-id`](https://github.com/astrolunet/astrolune-id) | Identity/wallet package |
 
 ## Contributing
 

@@ -31,6 +31,8 @@ jobs:
       CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - run: cmake --workflow --preset ci
@@ -59,6 +61,8 @@ jobs:
       CXX: ${{ startsWith(matrix.os, 'ubuntu') && 'clang++' || 'cl' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - run: cmake --workflow --preset asan
@@ -71,6 +75,8 @@ jobs:
       CXX: g++
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Install libsodium
         run: sudo apt-get update && sudo apt-get install -y libsodium-dev
       - run: cmake --preset dev -DASTROLUNE_CRYPTO_BACKEND=sodium
@@ -85,6 +91,8 @@ jobs:
       CXX: clang++
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - run: cmake --preset fuzz
       - run: cmake --build --preset fuzz
       - run: ./build/fuzz/bin/fuzz_tx -runs=100 fuzz/corpus/tx

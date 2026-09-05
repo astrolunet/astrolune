@@ -1,0 +1,3 @@
+[submodule "tools/trocto"]
+	path = tools/trocto
+	url = https://github.com/astrolunet/trocto.git
