@@ -4,9 +4,6 @@
 [submodule "submodules/contracts"]
 	path = submodules/contracts
 	url = https://github.com/astrolunet/astrolune-contracts.git
-[submodule "submodules/ecosystem"]
-	path = submodules/ecosystem
-	url = https://github.com/astrolunet/astrolune-ecosystem.git
 [submodule "submodules/landing"]
 	path = submodules/landing
 	url = https://github.com/astrolunet/astrolune-landing.git
@@ -16,3 +13,9 @@
 [submodule "submodules/proxy"]
 	path = submodules/proxy
 	url = https://github.com/astrolunet/astrolune-proxy.git
+[submodule "submodules/dns"]
+	path = submodules/dns
+	url = https://github.com/astrolunet/astrolune-dns.git
+[submodule "submodules/share"]
+	path = submodules/share
+	url = https://github.com/astrolunet/astrolune-share.git
