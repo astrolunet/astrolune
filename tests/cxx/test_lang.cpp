@@ -1255,7 +1255,7 @@ AL_TEST(trocto_v03_dns_registry_compiles) {
                 owner: address,
                 domain_count: u64,
                 domains: map<u64,u64>,
-                domain_owners: map<u64,u64>,
+                domain_owners: map<u64,address>,
             }
 
             event DomainRegistered {
