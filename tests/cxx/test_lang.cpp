@@ -1077,6 +1077,254 @@ AL_TEST(trocto_expanded_map_types_compile) {
     AL_CHECK(compiled.has_value());
 }
 
+// ---------------------------------------------------------------------------
+// v0.3 feature tests: enums, structs, only_owner
+// ---------------------------------------------------------------------------
+
+AL_TEST(trocto_v03_enum_compiles) {
+    const char* source = R"tc(
+        contract EnumTest {
+            enum Color { RED: 1, GREEN: 2, BLUE: 3 }
+
+            state {
+                favorite: u64,
+            }
+
+            pub fn set_color(c: u64) -> u64 {
+                self.favorite = c;
+                return self.favorite;
+            }
+
+            pub fn get_color() -> u64 {
+                return self.favorite;
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+}
+
+AL_TEST(trocto_v03_enum_variant_access) {
+    const char* source = R"tc(
+        contract EnumAccess {
+            enum Status { ACTIVE: 1, INACTIVE: 0 }
+
+            state {
+                current: u64,
+            }
+
+            pub fn activate() -> u64 {
+                self.current = 1;
+                return self.current;
+            }
+
+            pub fn get_status() -> u64 {
+                return self.current;
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+    if (!compiled) return;
+
+    host_state().storage.clear();
+
+    // activate() sets status to 1
+    RunOutcome activate = run(compiled->container, {}, 1);
+    AL_CHECK_EQ_STATUS(activate.status, AL_OK);
+    AL_CHECK_EQ_U64(activate.returned_u64, 1);
+
+    // get_status() returns 1
+    RunOutcome get = run(compiled->container, {}, 2);
+    AL_CHECK_EQ_STATUS(get.status, AL_OK);
+    AL_CHECK_EQ_U64(get.returned_u64, 1);
+}
+
+AL_TEST(trocto_v03_struct_compiles) {
+    const char* source = R"tc(
+        contract StructTest {
+            struct Point { x: u64, y: u64 }
+
+            state {
+                last_x: u64,
+                last_y: u64,
+            }
+
+            pub fn set_point(px: u64, py: u64) -> u64 {
+                self.last_x = px;
+                self.last_y = py;
+                return px + py;
+            }
+
+            pub fn get_x() -> u64 {
+                return self.last_x;
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+    if (!compiled) return;
+
+    host_state().storage.clear();
+
+    RunOutcome set = run(compiled->container, {10, 20}, 1);
+    AL_CHECK_EQ_STATUS(set.status, AL_OK);
+    AL_CHECK_EQ_U64(set.returned_u64, 30);
+
+    RunOutcome get_x = run(compiled->container, {}, 2);
+    AL_CHECK_EQ_STATUS(get_x.status, AL_OK);
+    AL_CHECK_EQ_U64(get_x.returned_u64, 10);
+}
+
+AL_TEST(trocto_v03_event_with_multiple_args) {
+    const char* source = R"tc(
+        contract MultiEvent {
+            enum RecordType { A: 1, B: 2 }
+
+            state {
+                count: u64,
+            }
+
+            pub fn record(domain: u64, record_type: u64, value: u64) -> u64 {
+                self.count += 1;
+                emit RecordSet(domain, record_type, value);
+                return self.count;
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+    if (!compiled) return;
+
+    host_state().storage.clear();
+    host_state().events.clear();
+
+    RunOutcome rec = run(compiled->container, {100, 1, 42}, 1);
+    AL_CHECK_EQ_STATUS(rec.status, AL_OK);
+    AL_CHECK_EQ_U64(rec.returned_u64, 1);
+    AL_CHECK_EQ_U64(host_state().events.size(), 1);
+    if (!host_state().events.empty()) {
+        // Event data should contain 3 u64 values (24 bytes)
+        AL_CHECK_EQ_U64(host_state().events[0].data.size(), 24);
+    }
+}
+
+AL_TEST(trocto_v03_only_owner_reverts_for_non_owner) {
+    const char* source = R"tc(
+        contract Owned {
+            state {
+                owner: address,
+                value: u64,
+            }
+
+            init() {
+                self.owner = sender();
+            }
+
+            only_owner pub fn set_value(v: u64) -> u64 {
+                self.value = v;
+                return self.value;
+            }
+
+            pub fn get_value() -> u64 {
+                return self.value;
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+    if (!compiled) return;
+
+    host_state().storage.clear();
+
+    // Deploy (constructor sets owner to sender 0x11...)
+    RunOutcome init = run(compiled->container, {}, 0);
+    AL_CHECK_EQ_STATUS(init.status, AL_OK);
+
+    // Owner (sender 0x11...) can call set_value
+    RunOutcome set_ok = run(compiled->container, {42}, 1);
+    AL_CHECK_EQ_STATUS(set_ok.status, AL_OK);
+    AL_CHECK_EQ_U64(set_ok.returned_u64, 42);
+}
+
+AL_TEST(trocto_v03_dns_registry_compiles) {
+    // Test that the LuneRegistry contract compiles
+    const char* source = R"tc(
+        contract LuneRegistry {
+            state {
+                owner: address,
+                domain_count: u64,
+                domains: map<u64,u64>,
+                domain_owners: map<u64,u64>,
+            }
+
+            event DomainRegistered {
+                domain_hash: u64,
+                owner: address,
+                expiry: u64,
+            }
+
+            init() {
+                self.owner = sender();
+                self.domain_count = 0;
+            }
+
+            pub fn register(domain_hash: u64, duration: u64) -> u64 {
+                let expiry = height() + duration;
+                domains[domain_hash] = expiry;
+                domain_owners[domain_hash] = sender();
+                self.domain_count += 1;
+                emit DomainRegistered(domain_hash, sender(), expiry);
+                return expiry;
+            }
+
+            pub fn is_registered(domain_hash: u64) -> u64 {
+                let expiry = domains[domain_hash];
+                if (expiry == 0) {
+                    return 0;
+                }
+                if (height() > expiry) {
+                    return 0;
+                }
+                return 1;
+            }
+
+            pub fn get_expiry(domain_hash: u64) -> u64 {
+                return domains[domain_hash];
+            }
+        }
+    )tc";
+    auto compiled = build(source);
+    AL_CHECK(compiled.has_value());
+    if (!compiled) return;
+
+    host_state().storage.clear();
+    host_state().events.clear();
+
+    // Deploy
+    RunOutcome init = run(compiled->container, {}, 0);
+    AL_CHECK_EQ_STATUS(init.status, AL_OK);
+
+    // Register domain "web.lune" (hash=0xDEADBEEF) for 1000 blocks
+    RunOutcome reg = run(compiled->container, {0xDEADBEEF, 1000}, 1);
+    AL_CHECK_EQ_STATUS(reg.status, AL_OK);
+    // Expiry should be height(7) + 1000 = 1007
+    AL_CHECK_EQ_U64(reg.returned_u64, 1007);
+
+    // Check registration
+    RunOutcome check = run(compiled->container, {0xDEADBEEF}, 2);
+    AL_CHECK_EQ_STATUS(check.status, AL_OK);
+    AL_CHECK_EQ_U64(check.returned_u64, 1);  // registered
+
+    // Check expiry
+    RunOutcome expiry = run(compiled->container, {0xDEADBEEF}, 3);
+    AL_CHECK_EQ_STATUS(expiry.status, AL_OK);
+    AL_CHECK_EQ_U64(expiry.returned_u64, 1007);
+
+    // Event emitted
+    AL_CHECK_EQ_U64(host_state().events.size(), 1);
+}
+
 static const char* AL_TEST_SUITE_NAME = "lang";
 
 AL_TEST_MAIN {
@@ -1093,4 +1341,11 @@ AL_TEST_MAIN {
     AL_RUN(trocto_map_u64_key_end_to_end);
     AL_RUN(trocto_import_validation);
     AL_RUN(trocto_expanded_map_types_compile);
+    // v0.3 feature tests
+    AL_RUN(trocto_v03_enum_compiles);
+    AL_RUN(trocto_v03_enum_variant_access);
+    AL_RUN(trocto_v03_struct_compiles);
+    AL_RUN(trocto_v03_event_with_multiple_args);
+    AL_RUN(trocto_v03_only_owner_reverts_for_non_owner);
+    AL_RUN(trocto_v03_dns_registry_compiles);
 }

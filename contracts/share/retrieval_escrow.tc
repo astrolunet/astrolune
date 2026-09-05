@@ -1,0 +1,93 @@
+contract RetrievalEscrow {
+    field owner: address;
+    field escrow_count: u64;
+    field escrow_amounts: map<u64, u64>;
+    field escrow_buyers: map<u64, address>;
+    field escrow_status: map<u64, u8>;
+
+    event EscrowCreated {
+        escrow_id: u64;
+        buyer: address;
+        amount: u64;
+    }
+
+    event EscrowReleased {
+        escrow_id: u64;
+        amount: u64;
+    }
+
+    event EscrowRefunded {
+        escrow_id: u64;
+        amount: u64;
+    }
+
+    constructor() {
+        self.owner = sender();
+        self.escrow_count = 0;
+    }
+
+    function create_escrow(offer_id: u64, amount: u64) -> u64 {
+        require(amount > 0, 200);
+
+        let escrow_id = self.escrow_count;
+        self.escrow_amounts[escrow_id] = amount;
+        self.escrow_buyers[escrow_id] = sender();
+        self.escrow_status[escrow_id] = 0;
+        self.escrow_count = escrow_id + 1;
+
+        emit EscrowCreated {
+            escrow_id: escrow_id,
+            buyer: sender(),
+            amount: amount,
+        };
+
+        return escrow_id;
+    }
+
+    function release_escrow(escrow_id: u64, to: address) {
+        require(escrow_id < self.escrow_count, 201);
+        require(self.escrow_status[escrow_id] == 0, 202);
+        require(sender() == self.owner, 203);
+
+        let amount = self.escrow_amounts[escrow_id];
+        self.escrow_status[escrow_id] = 1;
+
+        pay(to, amount);
+
+        emit EscrowReleased {
+            escrow_id: escrow_id,
+            amount: amount,
+        };
+    }
+
+    function refund_escrow(escrow_id: u64) {
+        require(escrow_id < self.escrow_count, 204);
+        require(self.escrow_status[escrow_id] == 0, 205);
+        require(sender() == self.escrow_buyers[escrow_id], 206);
+
+        let amount = self.escrow_amounts[escrow_id];
+        self.escrow_status[escrow_id] = 2;
+
+        pay(sender(), amount);
+
+        emit EscrowRefunded {
+            escrow_id: escrow_id,
+            amount: amount,
+        };
+    }
+
+    function get_escrow_amount(escrow_id: u64) -> u64 {
+        require(escrow_id < self.escrow_count, 207);
+        return self.escrow_amounts[escrow_id];
+    }
+
+    function get_escrow_buyer(escrow_id: u64) -> address {
+        require(escrow_id < self.escrow_count, 208);
+        return self.escrow_buyers[escrow_id];
+    }
+
+    function get_escrow_status(escrow_id: u64) -> u8 {
+        require(escrow_id < self.escrow_count, 209);
+        return self.escrow_status[escrow_id];
+    }
+}

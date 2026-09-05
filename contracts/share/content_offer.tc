@@ -1,0 +1,107 @@
+contract ContentOffer {
+    field owner: address;
+    field offer_count: u64;
+    field offer_prices: map<u64, u64>;
+    field offer_sellers: map<u64, address>;
+    field offer_content: map<u64, string>;
+    field offer_active: map<u64, bool>;
+
+    event OfferCreated {
+        offer_id: u64;
+        seller: address;
+        content_id: string;
+        price: u64;
+    }
+
+    event OfferUpdated {
+        offer_id: u64;
+        new_price: u64;
+    }
+
+    event OfferAccepted {
+        offer_id: u64;
+        buyer: address;
+        price: u64;
+    }
+
+    constructor() {
+        self.owner = sender();
+        self.offer_count = 0;
+    }
+
+    function create_offer(content_id: string, price: u64) -> u64 {
+        require(price > 0, 100);
+
+        let offer_id = self.offer_count;
+        self.offer_prices[offer_id] = price;
+        self.offer_sellers[offer_id] = sender();
+        self.offer_content[offer_id] = content_id;
+        self.offer_active[offer_id] = true;
+        self.offer_count = offer_id + 1;
+
+        emit OfferCreated {
+            offer_id: offer_id,
+            seller: sender(),
+            content_id: content_id,
+            price: price,
+        };
+
+        return offer_id;
+    }
+
+    function update_offer(offer_id: u64, new_price: u64) {
+        require(offer_id < self.offer_count, 101);
+        require(self.offer_sellers[offer_id] == sender(), 102);
+        require(self.offer_active[offer_id], 103);
+        require(new_price > 0, 104);
+
+        self.offer_prices[offer_id] = new_price;
+
+        emit OfferUpdated {
+            offer_id: offer_id,
+            new_price: new_price,
+        };
+    }
+
+    function accept_offer(offer_id: u64) {
+        require(offer_id < self.offer_count, 105);
+        require(self.offer_active[offer_id], 106);
+        require(sender() != self.offer_sellers[offer_id], 107);
+
+        let price = self.offer_prices[offer_id];
+
+        emit OfferAccepted {
+            offer_id: offer_id,
+            buyer: sender(),
+            price: price,
+        };
+    }
+
+    function get_offer_price(offer_id: u64) -> u64 {
+        require(offer_id < self.offer_count, 108);
+        return self.offer_prices[offer_id];
+    }
+
+    function get_offer_seller(offer_id: u64) -> address {
+        require(offer_id < self.offer_count, 109);
+        return self.offer_sellers[offer_id];
+    }
+
+    function get_offer_content(offer_id: u64) -> string {
+        require(offer_id < self.offer_count, 110);
+        return self.offer_content[offer_id];
+    }
+
+    function is_offer_active(offer_id: u64) -> bool {
+        require(offer_id < self.offer_count, 111);
+        return self.offer_active[offer_id];
+    }
+
+    function deactivate_offer(offer_id: u64) {
+        require(offer_id < self.offer_count, 112);
+        require(self.offer_sellers[offer_id] == sender(), 113);
+        require(self.offer_active[offer_id], 114);
+
+        self.offer_active[offer_id] = false;
+    }
+}

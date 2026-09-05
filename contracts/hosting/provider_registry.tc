@@ -1,0 +1,150 @@
+// ProviderRegistry - on-chain registry for storage and hosting providers.
+//
+// Tracks provider capabilities, endpoints, tariff rates, and staked deposits.
+// Providers must register and stake a deposit before they can accept storage
+// agreements.
+//
+// Compile:
+//     trocto contracts/hosting/provider_registry.tc -o provider_registry.bin
+//     trocto contracts/hosting/provider_registry.tc --emit-regol
+
+contract ProviderRegistry {
+    state {
+        owner: address,
+        provider_count: u64,
+        providers: map<u64,u64>,
+        provider_capabilities: map<u64,u64>,
+        provider_deposits: map<u64,u64>,
+        provider_endpoints: map<u64,u64>,
+        provider_tariffs: map<u64,u64>,
+        provider_status: map<u64,u64>,
+    }
+
+    event ProviderRegistered {
+        provider_id: u64,
+        provider_addr: address,
+        capabilities: u64,
+        deposit: u64,
+    }
+
+    event ProviderUpdated {
+        provider_id: u64,
+        capabilities: u64,
+        endpoint: u64,
+        tariff: u64,
+    }
+
+    event ProviderDeregistered {
+        provider_id: u64,
+        refund: u64,
+    }
+
+    // Constructor: sets deployer as contract owner.
+    init() {
+        self.owner = sender();
+        self.provider_count = 0;
+    }
+
+    // Register a new storage provider. Caller must send a deposit.
+    // capabilities: bitmask of supported features (1=storage, 2=compute, 4=bandwidth)
+    // endpoint: encoded endpoint identifier (e.g. multiaddr hash)
+    // tariff: price per unit of storage per block
+    // Returns the provider_id.
+    pub fn register(capabilities: u64, endpoint: u64, tariff: u64) -> u64 {
+        require(capabilities != 0, 1);
+        require(endpoint != 0, 2);
+        require(tariff > 0, 3);
+        let deposit = caller_balance();
+        require(deposit > 0, 4);
+        let provider_id = self.provider_count + 1;
+        self.provider_count = provider_id;
+        providers[provider_id] = sender();
+        provider_capabilities[provider_id] = capabilities;
+        provider_endpoints[provider_id] = endpoint;
+        provider_tariffs[provider_id] = tariff;
+        provider_deposits[provider_id] = deposit;
+        provider_status[provider_id] = 1;
+        emit ProviderRegistered(provider_id, sender(), capabilities, deposit);
+        return provider_id;
+    }
+
+    // Update provider metadata. Only the provider may call this.
+    pub fn update(provider_id: u64, capabilities: u64, endpoint: u64, tariff: u64) {
+        require(providers[provider_id] == sender(), 5);
+        require(provider_status[provider_id] == 1, 6);
+        require(capabilities != 0, 1);
+        require(endpoint != 0, 2);
+        require(tariff > 0, 3);
+        provider_capabilities[provider_id] = capabilities;
+        provider_endpoints[provider_id] = endpoint;
+        provider_tariffs[provider_id] = tariff;
+        emit ProviderUpdated(provider_id, capabilities, endpoint, tariff);
+    }
+
+    // Deregister a provider and refund the deposit. Only the provider may call.
+    // Returns the refunded deposit amount.
+    pub fn deregister(provider_id: u64) -> u64 {
+        require(providers[provider_id] == sender(), 5);
+        require(provider_status[provider_id] == 1, 6);
+        let refund = provider_deposits[provider_id];
+        provider_status[provider_id] = 0;
+        provider_deposits[provider_id] = 0;
+        if (refund > 0) {
+            pay(sender(), refund);
+        }
+        emit ProviderDeregistered(provider_id, refund);
+        return refund;
+    }
+
+    // Top up a provider deposit. Only the provider may call.
+    pub fn top_up_deposit(provider_id: u64) {
+        require(providers[provider_id] == sender(), 5);
+        require(provider_status[provider_id] == 1, 6);
+        let amount = caller_balance();
+        require(amount > 0, 7);
+        provider_deposits[provider_id] += amount;
+    }
+
+    // Get the address of a provider.
+    pub fn get_provider_addr(provider_id: u64) -> address {
+        return providers[provider_id];
+    }
+
+    // Get provider capabilities bitmask.
+    pub fn get_capabilities(provider_id: u64) -> u64 {
+        return provider_capabilities[provider_id];
+    }
+
+    // Get provider endpoint.
+    pub fn get_endpoint(provider_id: u64) -> u64 {
+        return provider_endpoints[provider_id];
+    }
+
+    // Get provider tariff (price per unit per block).
+    pub fn get_tariff(provider_id: u64) -> u64 {
+        return provider_tariffs[provider_id];
+    }
+
+    // Get provider deposit balance.
+    pub fn get_deposit(provider_id: u64) -> u64 {
+        return provider_deposits[provider_id];
+    }
+
+    // Get provider status (0=deregistered, 1=active).
+    pub fn get_status(provider_id: u64) -> u64 {
+        return provider_status[provider_id];
+    }
+
+    // Get total number of registered providers.
+    pub fn get_provider_count() -> u64 {
+        return self.provider_count;
+    }
+
+    // Check if a provider is active. Returns 1 if active, 0 otherwise.
+    pub fn is_active(provider_id: u64) -> u64 {
+        if (provider_status[provider_id] == 1) {
+            return 1;
+        }
+        return 0;
+    }
+}

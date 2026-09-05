@@ -1,0 +1,18 @@
+[submodule "submodules/trocto"]
+	path = submodules/trocto
+	url = https://github.com/astrolunet/trocto.git
+[submodule "submodules/contracts"]
+	path = submodules/contracts
+	url = https://github.com/astrolunet/astrolune-contracts.git
+[submodule "submodules/ecosystem"]
+	path = submodules/ecosystem
+	url = https://github.com/astrolunet/astrolune-ecosystem.git
+[submodule "submodules/connect"]
+	path = submodules/connect
+	url = https://github.com/astrolunet/astrolune-connect.git
+[submodule "submodules/landing"]
+	path = submodules/landing
+	url = https://github.com/astrolunet/astrolune-landing.git
+[submodule "submodules/id"]
+	path = submodules/id
+	url = https://github.com/astrolunet/astrolune-id.git

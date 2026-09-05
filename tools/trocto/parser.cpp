@@ -1,13 +1,13 @@
-// Recursive-descent parser for the Trocto v0.2 subset.
+// Recursive-descent parser for the Trocto v0.3 subset.
 //
-// v0.2 additions over v0.1:
-//   - import "path";            at contract top level
-//   - init(...) { }             constructor, compiled as default entrypoint
-//   - "string" literals         bytes in linear memory
-//   - map<u64,u64>              index-based maps
-//   - map<address,address>      address-to-address maps
-//   - assert(cond);             panics with code 0
-//   - address == address        comparison support
+// v0.3 additions over v0.2:
+//   - enum EnumName { Variant: value, ... }
+//   - struct StructName { field: type, ... }
+//   - event EventName { field: type, ... }
+//   - only_owner modifier on pub fn
+//   - Struct literal: MyStruct { field: expr, ... }
+//   - Member access: expr.field (for struct instances)
+//   - AssignMember: instance.field = expr; or instance[key].field = expr;
 
 #include "lexer.hpp"
 #include "trocto_ast.hpp"
@@ -44,6 +44,21 @@ public:
                 parse_state(contract);
                 continue;
             }
+            // v0.3: enum declarations
+            if (accept_keyword("enum")) {
+                parse_enum(contract);
+                continue;
+            }
+            // v0.3: struct declarations
+            if (accept_keyword("struct")) {
+                parse_struct(contract);
+                continue;
+            }
+            // v0.3: event declarations
+            if (accept_keyword("event")) {
+                parse_event(contract);
+                continue;
+            }
             if (accept_keyword("init")) {
                 if (contract.constructor.has_value()) {
                     return fail("contract already has a constructor");
@@ -55,14 +70,16 @@ public:
                 if (!failed_) contract.constructor = std::move(fn);
                 continue;
             }
-            if (peek_is("pub") || peek_is("fn")) {
+            if (peek_is("pub") || peek_is("fn") ||
+                peek_is("only_owner")) {
                 FunctionDecl fn;
                 parse_function(fn);
                 if (!failed_) contract.functions.push_back(std::move(fn));
                 continue;
             }
             return fail(
-                "expected 'import', 'state', 'init', 'pub fn' or 'fn' "
+                "expected 'import', 'state', 'enum', 'struct', 'event', "
+                "'init', 'pub fn', 'fn', or 'only_owner' "
                 "inside contract");
         }
         if (failed_) return std::nullopt;
@@ -120,7 +137,7 @@ private:
             fail(std::string("expected ") + what);
             return "";
         }
-        // Keywords are usable as identifiers only where unambiguous; v0.1
+        // Keywords are usable as identifiers only where unambiguous; v0.2
         // simply forbids it to keep diagnostics sharp.
         if (peek().kind == TokenKind::Keyword) {
             fail(std::string(what) + " cannot be a keyword ('" +
@@ -194,6 +211,86 @@ private:
         }
     }
 
+    // v0.3: Parse enum declaration
+    // enum RecordType { LUNE_ADDRESS: 1, CONTENT: 2, SERVICE: 3 }
+    void parse_enum(ContractDecl& contract) {
+        EnumDecl en;
+        en.line = peek().line - 1;  // 'enum' keyword was consumed
+        en.name = consume_ident("enum name");
+        if (failed_) return;
+        expect_punct("{");
+        while (!failed_ && !accept_punct("}")) {
+            EnumDecl::Variant var;
+            var.line = peek().line;
+            var.name = consume_ident("enum variant name");
+            if (failed_) return;
+            expect_punct(":");
+            if (peek().kind != TokenKind::Number) {
+                fail("enum variant value must be a u64 literal");
+                return;
+            }
+            var.value = advance().number;
+            variants_.push_back(var.name);  // track for name resolution
+            en.variants.push_back(std::move(var));
+            if (!accept_punct(",")) {
+                expect_punct("}");
+                break;
+            }
+        }
+        if (!failed_) contract.enums.push_back(std::move(en));
+    }
+
+    // v0.3: Parse struct declaration
+    // struct DomainRecord { owner: address, expiry: u64, flags: u64 }
+    void parse_struct(ContractDecl& contract) {
+        StructDecl st;
+        st.line = peek().line - 1;  // 'struct' keyword was consumed
+        st.name = consume_ident("struct name");
+        if (failed_) return;
+        expect_punct("{");
+        while (!failed_ && !accept_punct("}")) {
+            StructDecl::Field field;
+            field.line = peek().line;
+            field.name = consume_ident("struct field name");
+            if (failed_) return;
+            expect_punct(":");
+            if (!parse_type(field.type)) return;
+            st.fields.push_back(std::move(field));
+            if (!accept_punct(",")) {
+                expect_punct("}");
+                break;
+            }
+        }
+        if (!failed_) {
+            struct_size_[st.name] = st.fields.size();  // track for lowering
+            contract.structs.push_back(std::move(st));
+        }
+    }
+
+    // v0.3: Parse event declaration
+    // event DomainRegistered { name: string, owner: address, expiry: u64 }
+    void parse_event(ContractDecl& contract) {
+        EventDecl ev;
+        ev.line = peek().line - 1;  // 'event' keyword was consumed
+        ev.name = consume_ident("event name");
+        if (failed_) return;
+        expect_punct("{");
+        while (!failed_ && !accept_punct("}")) {
+            EventDecl::Field field;
+            field.line = peek().line;
+            field.name = consume_ident("event field name");
+            if (failed_) return;
+            expect_punct(":");
+            if (!parse_type(field.type)) return;
+            ev.fields.push_back(std::move(field));
+            if (!accept_punct(",")) {
+                expect_punct("}");
+                break;
+            }
+        }
+        if (!failed_) contract.events.push_back(std::move(ev));
+    }
+
     bool parse_type(ValueType& out) {
         if (accept_keyword("u64")) {
             out = ValueType::U64;
@@ -207,12 +304,20 @@ private:
             out = ValueType::String;
             return true;
         }
-        fail("types are u64, address, or string");
+        if (accept_keyword("bytes")) {
+            out = ValueType::U64;  // bytes stored as u64 offset/length
+            return true;
+        }
+        fail("types are u64, address, string, or bytes");
         return false;
     }
 
     void parse_function(FunctionDecl& fn) {
         fn.line = peek().line;
+        // v0.3: only_owner modifier
+        if (accept_keyword("only_owner")) {
+            fn.is_only_owner = true;
+        }
         fn.public_abi = accept_keyword("pub");
         expect_keyword("fn");
         fn.name = consume_ident("function name");
@@ -342,8 +447,10 @@ private:
             return finish(std::move(stmt));
         }
 
-        // Assignment targets: `name = …` and `self.name = …`. Distinguished
-        // by fixed token offsets so expression statements stay unambiguous.
+        // Assignment targets: `name = …`, `self.name = …`, `name[key] = …`,
+        // and v0.3: `name.field = …`, `name[key].field = …`.
+        // Distinguished by fixed token offsets so expression statements stay
+        // unambiguous.
         if (peek_is("self") && peek(1).kind == TokenKind::Punct &&
             peek(1).text == "." && peek(2).kind == TokenKind::Ident &&
             is_assign_start(peek(3))) {
@@ -351,6 +458,33 @@ private:
             advance();  // self
             advance();  // .
             stmt->name = advance().text;
+            parse_assign_rest(*stmt);
+            return finish(std::move(stmt));
+        }
+        // v0.3: name[key].field = expr;
+        if (peek().kind == TokenKind::Ident && peek(1).kind == TokenKind::Punct &&
+            peek(1).text == "[" && peek(3).kind == TokenKind::Punct &&
+            peek(3).text == "]" && peek(4).kind == TokenKind::Punct &&
+            peek(4).text == "." && peek(5).kind == TokenKind::Ident &&
+            is_assign_start(peek(6))) {
+            auto stmt = make(StmtKind::AssignMember, line);
+            stmt->name = advance().text;       // map name
+            advance();  // [
+            stmt->map_key = parse_expr();
+            expect_punct("]");
+            advance();  // .
+            stmt->member_name = advance().text;
+            parse_assign_rest(*stmt);
+            return finish(std::move(stmt));
+        }
+        // v0.3: name.field = expr;
+        if (peek().kind == TokenKind::Ident && peek(1).kind == TokenKind::Punct &&
+            peek(1).text == "." && peek(2).kind == TokenKind::Ident &&
+            is_assign_start(peek(3))) {
+            auto stmt = make(StmtKind::AssignMember, line);
+            stmt->name = advance().text;       // variable name
+            advance();  // .
+            stmt->member_name = advance().text;
             parse_assign_rest(*stmt);
             return finish(std::move(stmt));
         }
@@ -541,6 +675,14 @@ private:
                 expr->args.push_back(parse_expr());
                 if (failed_) return nullptr;
                 expect_punct("]");
+                // v0.3: member access on map read: map[key].field
+                if (peek().kind == TokenKind::Punct && peek().text == ".") {
+                    advance();  // .
+                    auto member = make_expr(ExprKind::MemberAccess, line);
+                    member->lhs = std::move(expr);
+                    member->field_name = consume_ident("struct field");
+                    return member;
+                }
                 return expr;
             }
             if (peek(1).kind == TokenKind::Punct && peek(1).text == "(") {
@@ -567,6 +709,56 @@ private:
                 }
                 return expr;
             }
+            // v0.3: Enum variant access: EnumName.VariantName
+            if (peek(1).kind == TokenKind::Punct && peek(1).text == ".") {
+                std::string enum_name = name;
+                advance();  // enum name
+                advance();  // .
+                if (peek().kind == TokenKind::Ident) {
+                    std::string variant = advance().text;
+                    auto expr = make_expr(ExprKind::EnumVariant, line);
+                    expr->name = enum_name;
+                    expr->field_name = variant;
+                    return expr;
+                }
+                fail("expected variant name after '.'");
+                return nullptr;
+            }
+            // v0.3: Struct literal construction: MyStruct { field: value, ... }
+            if (peek(1).kind == TokenKind::Punct && peek(1).text == "{") {
+                std::string struct_name = name;
+                advance();  // struct name
+                advance();  // {
+                auto expr = make_expr(ExprKind::StructNew, line);
+                expr->name = struct_name;
+                while (!accept_punct("}")) {
+                    std::string field = consume_ident("struct field name");
+                    if (failed_) return nullptr;
+                    expect_punct(":");
+                    ExprPtr value = parse_expr();
+                    if (!value) return nullptr;
+                    expr->field_names.push_back(std::move(field));
+                    expr->args.push_back(std::move(value));
+                    if (!accept_punct(",")) {
+                        expect_punct("}");
+                        break;
+                    }
+                }
+                return expr;
+            }
+        }
+
+        // v0.3: member access on local variable: instance.field
+        if (peek().kind == TokenKind::Ident && peek(1).kind == TokenKind::Punct &&
+            peek(1).text == ".") {
+            std::string var_name = advance().text;
+            advance();  // .
+            auto base = make_expr(ExprKind::Local, line);
+            base->name = var_name;
+            auto expr = make_expr(ExprKind::MemberAccess, line);
+            expr->lhs = std::move(base);
+            expr->field_name = consume_ident("struct field");
+            return expr;
         }
 
         if (peek().kind == TokenKind::Ident) {
@@ -624,6 +816,9 @@ private:
     Diagnostics& diagnostics_;
     size_t position_ = 0;
     bool failed_ = false;
+    // v0.3 tracking
+    std::vector<std::string> variants_;       // all enum variant names
+    std::map<std::string, size_t> struct_size_;  // struct name -> field count
 };
 
 }  // namespace

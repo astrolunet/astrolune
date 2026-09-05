@@ -22,10 +22,12 @@ const char* const kTwoChar[] = {
 };
 
 const char* const kKeywords[] = {
-    // Trocto
+    // Trocto v0.2
     "contract", "state", "pub", "fn", "let", "if", "else", "while",
     "return", "require", "emit", "self", "true", "false", "u64",
     "init", "import", "assert", "string", "address",
+    // Trocto v0.3 - ecosystem extensions
+    "struct", "enum", "event", "only_owner", "bytes",
     // Regol
     "fn", "entry",
 };

@@ -1,0 +1,108 @@
+// LuneRegistry - domain name registry for the .lune DNS system.
+//
+// Compile:
+//     trocto contracts/lune_dns/registry.tc -o registry.bin
+//     trocto contracts/lune_dns/registry.tc --emit-regol
+
+contract LuneRegistry {
+    state {
+        owner: address,
+        domain_count: u64,
+        domains: map<u64,u64>,
+        domain_owners: map<u64,u64>,
+        domain_resolvers: map<u64,u64>,
+        domain_flags: map<u64,u64>,
+    }
+
+    event DomainRegistered {
+        domain_hash: u64,
+        owner: address,
+        expiry: u64,
+    }
+
+    event DomainRenewed {
+        domain_hash: u64,
+        new_expiry: u64,
+    }
+
+    event DomainTransferred {
+        domain_hash: u64,
+        from: address,
+        to: address,
+    }
+
+    // Constructor: sets deployer as contract owner.
+    init() {
+        self.owner = sender();
+        self.domain_count = 0;
+    }
+
+    // Register a new domain. Requires domain not already registered.
+    // Calculates price based on duration. Returns expiry height.
+    pub fn register(domain_hash: u64, duration: u64) -> u64 {
+        require(_is_expired(domain_hash) == 1, 1);
+        require(duration > 0, 2);
+        let expiry = height() + duration;
+        domains[domain_hash] = expiry;
+        domain_owners[domain_hash] = sender();
+        domain_resolvers[domain_hash] = 0;
+        domain_flags[domain_hash] = 0;
+        self.domain_count += 1;
+        emit DomainRegistered(domain_hash, sender(), expiry);
+        return expiry;
+    }
+
+    // Renew an existing domain. Only owner can renew. Returns new expiry height.
+    pub fn renew(domain_hash: u64, duration: u64) -> u64 {
+        require(_is_expired(domain_hash) == 0, 3);
+        require(domain_owners[domain_hash] == sender(), 4);
+        require(duration > 0, 2);
+        let current_expiry = domains[domain_hash];
+        let new_expiry = current_expiry + duration;
+        domains[domain_hash] = new_expiry;
+        emit DomainRenewed(domain_hash, new_expiry);
+        return new_expiry;
+    }
+
+    // Transfer domain ownership. Only current owner.
+    pub fn transfer(domain_hash: u64, to: u64) {
+        require(_is_expired(domain_hash) == 0, 3);
+        require(domain_owners[domain_hash] == sender(), 4);
+        let from = sender();
+        domain_owners[domain_hash] = to;
+        emit DomainTransferred(domain_hash, from, to);
+    }
+
+    // Check if domain is registered and not expired.
+    // Returns 1 if registered and valid, 0 otherwise.
+    pub fn is_registered(domain_hash: u64) -> u64 {
+        return _is_expired(domain_hash) ^ 1;
+    }
+
+    // Get domain owner.
+    pub fn get_owner(domain_hash: u64) -> u64 {
+        return domain_owners[domain_hash];
+    }
+
+    // Get domain expiry height.
+    pub fn get_expiry(domain_hash: u64) -> u64 {
+        return domains[domain_hash];
+    }
+
+    // Price calculation: base cost of 10 per block.
+    fn calculate_price(duration: u64) -> u64 {
+        return duration * 10;
+    }
+
+    // Internal expiry check. Returns 1 if expired or unregistered, 0 if valid.
+    fn _is_expired(domain_hash: u64) -> u64 {
+        let expiry = domains[domain_hash];
+        if (expiry == 0) {
+            return 1;
+        }
+        if (height() > expiry) {
+            return 1;
+        }
+        return 0;
+    }
+}

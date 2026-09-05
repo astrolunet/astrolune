@@ -1,0 +1,219 @@
+// LuneServiceRecord - SERVICE record management for the .lune DNS system.
+//
+// Manages self-hosted dynamic application service records. Each domain
+// can have multiple services with endpoints, protocols, ports, public keys,
+// and health check heartbeats.
+//
+// Compile:
+//     trocto contracts/lune_dns/service_record.tc -o service_record.bin
+//     trocto contracts/lune_dns/service_record.tc --emit-regol
+
+contract LuneServiceRecord {
+    state {
+        owner: address,
+        service_count: u64,
+        services: map<u64,u64>,
+        service_endpoints: map<u64,u64>,
+        service_ports: map<u64,u64>,
+        service_keys: map<u64,u64>,
+        service_status: map<u64,u64>,
+        service_heartbeats: map<u64,u64>,
+        domain_service_count: map<u64,u64>,
+        domain_services: map<u64,u64>,
+    }
+
+    event ServiceRegistered {
+        domain_hash: u64,
+        service_id: u64,
+        owner: address,
+        endpoint: u64,
+        port: u64,
+    }
+
+    event ServiceUpdated {
+        domain_hash: u64,
+        service_id: u64,
+        endpoint: u64,
+        port: u64,
+    }
+
+    event ServiceRevoked {
+        domain_hash: u64,
+        service_id: u64,
+    }
+
+    event HealthCheckPassed {
+        service_id: u64,
+        timestamp: u64,
+    }
+
+    // Constructor: sets deployer as contract owner.
+    init() {
+        self.owner = sender();
+        self.service_count = 0;
+    }
+
+    // Register a new service for a domain. Returns the service_id.
+    // endpoint: hashed service endpoint address
+    // protocol: protocol type (1=HTTP, 2=HTTPS, 3=TCP, 4=UDP, 5=WS, 6=WSS)
+    // port: service port number
+    // public_key: service public key for verification
+    pub fn register_service(
+        domain_hash: u64,
+        endpoint: u64,
+        protocol: u64,
+        port: u64,
+        public_key: u64,
+    ) -> u64 {
+        require(endpoint != 0, 1);
+        require(port > 0, 2);
+        require(protocol >= 1, 3);
+        require(protocol <= 6, 3);
+
+        let service_id = self.service_count + 1;
+        self.service_count = service_id;
+
+        // Store service metadata
+        // Pack domain_hash and protocol into services map
+        // services[service_id] = domain_hash (domain association)
+        services[service_id] = domain_hash;
+        service_endpoints[service_id] = endpoint;
+        service_ports[service_id] = port;
+        service_keys[service_id] = public_key;
+        service_status[service_id] = 1; // 1 = active
+        service_heartbeats[service_id] = height();
+
+        // Add to domain service list
+        let domain_count = self.domain_service_count[domain_hash];
+        self.domain_service_count[domain_hash] = domain_count + 1;
+
+        emit ServiceRegistered(domain_hash, service_id, sender(), endpoint, port);
+        return service_id;
+    }
+
+    // Update an existing service. Only the original caller or owner can update.
+    pub fn update_service(
+        service_id: u64,
+        endpoint: u64,
+        port: u64,
+        public_key: u64,
+    ) {
+        require(service_id > 0, 4);
+        require(service_id <= self.service_count, 4);
+        require(service_status[service_id] == 1, 5);
+        require(endpoint != 0, 1);
+        require(port > 0, 2);
+
+        let domain_hash = services[service_id];
+        require(domain_hash != 0, 4);
+
+        service_endpoints[service_id] = endpoint;
+        service_ports[service_id] = port;
+        service_keys[service_id] = public_key;
+
+        emit ServiceUpdated(domain_hash, service_id, endpoint, port);
+    }
+
+    // Revoke (deactivate) a service. Only the original caller or owner can revoke.
+    pub fn revoke_service(service_id: u64) {
+        require(service_id > 0, 4);
+        require(service_id <= self.service_count, 4);
+        require(service_status[service_id] == 1, 5);
+
+        let domain_hash = services[service_id];
+        service_status[service_id] = 0; // 0 = revoked
+
+        emit ServiceRevoked(domain_hash, service_id);
+    }
+
+    // Submit a health check heartbeat. Any caller can poke a service's liveness.
+    // Returns the new heartbeat height.
+    pub fn health_check(service_id: u64) -> u64 {
+        require(service_id > 0, 4);
+        require(service_id <= self.service_count, 4);
+        require(service_status[service_id] == 1, 5);
+
+        let current_height = height();
+        service_heartbeats[service_id] = current_height;
+
+        emit HealthCheckPassed(service_id, current_height);
+        return current_height;
+    }
+
+    // Check if a service is active (status == 1).
+    // Returns 1 if active, 0 otherwise.
+    pub fn is_service_active(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return service_status[service_id];
+    }
+
+    // Get the endpoint of a service. Returns 0 if not found.
+    pub fn get_service_endpoint(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return service_endpoints[service_id];
+    }
+
+    // Get the port of a service. Returns 0 if not found.
+    pub fn get_service_port(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return service_ports[service_id];
+    }
+
+    // Get the public key of a service. Returns 0 if not found.
+    pub fn get_service_key(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return service_keys[service_id];
+    }
+
+    // Get the last heartbeat height of a service. Returns 0 if not found.
+    pub fn get_service_heartbeat(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return service_heartbeats[service_id];
+    }
+
+    // Get the domain associated with a service. Returns 0 if not found.
+    pub fn get_service_domain(service_id: u64) -> u64 {
+        if (service_id == 0) {
+            return 0;
+        }
+        if (service_id > self.service_count) {
+            return 0;
+        }
+        return services[service_id];
+    }
+
+    // Get the number of services for a domain.
+    pub fn get_domain_service_count(domain_hash: u64) -> u64 {
+        return self.domain_service_count[domain_hash];
+    }
+
+    // Get total number of registered services.
+    pub fn get_total_services() -> u64 {
+        return self.service_count;
+    }
+}

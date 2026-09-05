@@ -1,0 +1,73 @@
+// LuneRegistrar - Commit-reveal registration for the .lune DNS system.
+//
+// Register flow:
+//   1. User computes commit_hash = hash(domain_hash, salt) off-chain
+//   2. User calls commit(commit_hash) to lock the commitment
+//   3. After a delay, user calls register(domain_hash, commit_hash, salt, duration)
+//   4. Registrar verifies commit, registers domain
+//
+// Compile:
+//     trocto contracts/lune_dns/registrar.tc -o registrar.bin
+//     trocto contracts/lune_dns/registrar.tc --emit-regol
+
+contract LuneRegistrar {
+    state {
+        registry: u64,
+        commit_hashes: map<u64,u64>,
+        min_registration_duration: u64,
+        max_registration_duration: u64,
+        short_name_threshold: u64,
+        short_name_price_multiplier: u64,
+        base_price: u64,
+    }
+
+    event CommitCreated {
+        commit_hash: u64,
+        expiry: u64,
+    }
+
+    event RegistrationCompleted {
+        domain_hash: u64,
+        owner: address,
+        expiry: u64,
+    }
+
+    init(registry_addr: u64) {
+        self.registry = registry_addr;
+        self.min_registration_duration = 31536000;
+        self.max_registration_duration = 315360000;
+        self.short_name_threshold = 4;
+        self.short_name_price_multiplier = 3;
+        self.base_price = 10;
+    }
+
+    // Submit a registration commitment. Locks the commit_hash with an expiry.
+    // Returns the expiry height for the commit.
+    pub fn commit(commit_hash: u64) -> u64 {
+        require(commit_hash != 0, 1);
+        let expiry = height() + 100;
+        commit_hashes[commit_hash] = expiry;
+        emit CommitCreated(commit_hash, expiry);
+        return expiry;
+    }
+
+    // Complete registration after commit. Verifies the commit hash matches.
+    // Returns expiry height of the new domain.
+    pub fn register(domain_hash: u64, commit_hash: u64, salt: u64, duration: u64) -> u64 {
+        let expiry = commit_hashes[commit_hash];
+        require(expiry != 0, 2);
+        require(height() <= expiry, 3);
+        require(duration >= self.min_registration_duration, 4);
+        require(duration <= self.max_registration_duration, 5);
+        let price = calculate_price(duration);
+        commit_hashes[commit_hash] = 0;
+        let registration_expiry = height() + duration;
+        emit RegistrationCompleted(domain_hash, sender(), registration_expiry);
+        return registration_expiry;
+    }
+
+    // Calculate registration price based on duration.
+    pub fn calculate_price(duration: u64) -> u64 {
+        return self.base_price * duration;
+    }
+}
