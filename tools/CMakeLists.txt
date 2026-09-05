@@ -12,6 +12,10 @@ astrolune_add_tool_library(trocto
         trocto/src/trocto.cpp
     DEPS Astrolune::core
 )
+target_include_directories(trocto PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/trocto/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/trocto/src"
+)
 
 astrolune_add_executable(trocto_cli
     LANG CXX
