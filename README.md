@@ -1,7 +1,7 @@
 # Astrolune
 
 [![CI](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml/badge.svg)](https://github.com/astrolunet/astrolune/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/astrolunet/astrolune)](https://github.com/astrolunet/astrolune/releases/latest)
+<!-- [![Release](https://img.shields.io/github/v/release/astrolunet/astrolune)](https://github.com/astrolunet/astrolune/releases/latest) -->
 [![Documentation](https://img.shields.io/badge/docs-GitHub-0A7B83.svg)](https://github.com/astrolunet/astrolune-docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![C23](https://img.shields.io/badge/C-23-00599C.svg)](https://en.cppreference.com/w/c/23)
@@ -133,19 +133,6 @@ Clone with submodules:
 ```bash
 git clone --recurse-submodules https://github.com/astrolunet/astrolune.git
 ```
-
-### Ecosystem (separate repositories)
-
-These are independent services that run alongside the blockchain:
-
-| Repository | Description |
-|---|---|
-| [`astrolune-dns`](https://github.com/astrolunet/astrolune-dns) | Local DNS resolver + event indexer |
-| [`astrolune-share`](https://github.com/astrolunet/astrolune-share) | File chunking, Merkle manifests, encryption |
-| [`astrolune-proxy`](https://github.com/astrolunet/astrolune-proxy) | SOCKS5 proxy, reverse tunnel, gateway |
-| [`astrolune-contracts`](https://github.com/astrolunet/astrolune-contracts) | Smart contracts (DNS, hosting, share) |
-| [`astrolune-landing`](https://github.com/astrolunet/astrolune-landing) | Landing page (Next.js) |
-| [`astrolune-id`](https://github.com/astrolunet/astrolune-id) | Identity/wallet package |
 
 ## Contributing
 

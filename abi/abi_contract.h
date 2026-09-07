@@ -94,23 +94,23 @@
 #define AL_ABI_VALUE(expr, n) \
     AL_STATIC_ASSERT((expr) == (n), "ABI: " #expr " is not " #n)
 
-/* --------------------------------------------------------------------------
+/* 
  * 1. Preconditions
  *
  * If any of these fails, nothing below it is meaningful. Read this section
  * first and stop.
- * -------------------------------------------------------------------------- */
+ *                                                                            */
 
 AL_ABI_SIZE(void *, 8);
 AL_ABI_SIZE(al_size, 8);
 AL_ABI_VALUE(CHAR_BIT, 8);
 
-/* --------------------------------------------------------------------------
+/* 
  * 2. Scalar widths (base.h, fixed.h)
  *
  * These are typedefs of the stdint names, so a failure here means the platform
  * disagrees with its own stdint.h - not that a header was edited.
- * -------------------------------------------------------------------------- */
+ *                                                                            */
 
 AL_ABI_SIZE(al_u8,  1);  AL_ABI_ALIGN(al_u8,  1);
 AL_ABI_SIZE(al_u16, 2);  AL_ABI_ALIGN(al_u16, 2);
