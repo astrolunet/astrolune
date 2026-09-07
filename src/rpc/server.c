@@ -23,11 +23,13 @@ static al_socket invalid_socket(void) {
     return s;
 }
 
-/* Case-insensitive substring search over the header block only. */
+/* Case-insensitive header-name search at the start of each header line. */
 static const char *find_header(const char *headers, al_size headers_len,
                                const char *name) {
     al_size name_len = strlen(name);
-    for (al_size i = 0u; i + name_len < headers_len; ++i) {
+    for (al_size i = 2u; i + name_len <= headers_len; ++i) {
+        if (headers[i - 2u] != '\r' || headers[i - 1u] != '\n') continue;
+
         al_size j = 0u;
         while (j < name_len) {
             char a = headers[i + j];
