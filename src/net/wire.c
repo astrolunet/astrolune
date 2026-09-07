@@ -43,7 +43,15 @@ al_u32 al_wire_type_max_payload(al_wire_type type) {
     case AL_WIRE_KEY_EXCHANGE: return AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE;
     /* BLOCK, BLOCKS, PROPOSAL, VOTE, FINALITY, EVIDENCE may legitimately
      * approach the global ceiling; rely on AL_WIRE_MAX_PAYLOAD alone. */
-    default:                   return AL_WIRE_MAX_PAYLOAD;
+    case AL_WIRE_BLOCK:
+    case AL_WIRE_BLOCKS:
+    case AL_WIRE_PROPOSAL:
+    case AL_WIRE_VOTE:
+    case AL_WIRE_FINALITY:
+    case AL_WIRE_EVIDENCE:
+    case AL_WIRE_TYPE_SENTINEL:
+    default:
+        return AL_WIRE_MAX_PAYLOAD;
     }
 }
 
