@@ -31,6 +31,8 @@
 #else
 #  include <sys/select.h>
 #  include <sys/socket.h>
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
 #endif
 
 AL_EXTERN_C_BEGIN

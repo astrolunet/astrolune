@@ -572,6 +572,10 @@ static al_status tx_host_invoke(void *opaque, al_vm_host_id id,
         io->results[0] = io->execution->block_height; io->result_count = 1u; return AL_OK;
     case AL_VM_HOST_PROTOCOL_DAY:
         io->results[0] = io->execution->protocol_day; io->result_count = 1u; return AL_OK;
+    /* HOST_BALANCE returns the account's GLOBAL chain balance (ledger balance),
+     * not the balance deposited on any specific contract.  Contracts that need
+     * to track per-contract deposits must maintain their own accounting via
+     * storage (map entries or state fields). */
     case AL_VM_HOST_BALANCE: {
         AL_TRY(host_memory(io, a[0], AL_ADDRESS_SIZE));
         al_address address; AL_TRY(memory_address(io->memory, a[0], &address));

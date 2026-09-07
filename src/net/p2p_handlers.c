@@ -193,11 +193,35 @@ static void peer_canonical_endpoint(al_p2p_peer *peer, al_u16 listen_port) {
     if (separator == NULL) return;
     al_size host_length = (al_size)(separator - peer->endpoint);
     if (host_length == 0u || host_length >= sizeof(peer->endpoint)) return;
-    char endpoint[AL_P2P_ENDPOINT_SIZE];
-    (void)net_snprintf(endpoint, sizeof(endpoint), "%.*s:%u",
-                       (int)host_length, peer->endpoint,
-                       (unsigned)listen_port);
-    memcpy(peer->endpoint, endpoint, sizeof(peer->endpoint));
+
+    /* Normalise the IP address through inet_pton/inet_ntop so that different
+     * textual representations of the same address (e.g. "010.000.001.001"
+     * vs "10.0.1.1") compare equal in peer_drop_duplicate. */
+    char host_buf[64];
+    if (host_length >= sizeof(host_buf)) return;
+    memcpy(host_buf, peer->endpoint, host_length);
+    host_buf[host_length] = '\0';
+
+    struct in_addr addr;
+    if (inet_pton(AF_INET, host_buf, &addr) == 1) {
+        char normalised[INET_ADDRSTRLEN];
+#if defined(AL_OS_WINDOWS)
+        (void)InetNtopA(AF_INET, &addr, normalised, sizeof(normalised));
+#else
+        (void)inet_ntop(AF_INET, &addr, normalised, sizeof(normalised));
+#endif
+        char endpoint[AL_P2P_ENDPOINT_SIZE];
+        (void)net_snprintf(endpoint, sizeof(endpoint), "%s:%u",
+                           normalised, (unsigned)listen_port);
+        memcpy(peer->endpoint, endpoint, sizeof(peer->endpoint));
+    } else {
+        /* Non-IP hostname — keep as-is but canonicalise the port. */
+        char endpoint[AL_P2P_ENDPOINT_SIZE];
+        (void)net_snprintf(endpoint, sizeof(endpoint), "%.*s:%u",
+                           (int)host_length, peer->endpoint,
+                           (unsigned)listen_port);
+        memcpy(peer->endpoint, endpoint, sizeof(peer->endpoint));
+    }
 }
 
 static al_bool peer_drop_duplicate(al_p2p *network, al_p2p_peer **current) {

@@ -26,7 +26,25 @@ al_status al_wire_header_decode(al_bytes data, al_wire_header *out) {
         out->payload_len > AL_WIRE_MAX_PAYLOAD) {
         return AL_ERR_OUT_OF_RANGE;
     }
+    /* Tighten the bound for message types with a known smaller ceiling. */
+    if (out->payload_len > al_wire_type_max_payload(out->type)) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
     return al_reader_status(&reader);
+}
+
+al_u32 al_wire_type_max_payload(al_wire_type type) {
+    switch (type) {
+    case AL_WIRE_HELLO:        return AL_WIRE_MAX_PAYLOAD_HELLO;
+    case AL_WIRE_PING:         return AL_WIRE_MAX_PAYLOAD_PING;
+    case AL_WIRE_PONG:         return AL_WIRE_MAX_PAYLOAD_PONG;
+    case AL_WIRE_TX:           return AL_WIRE_MAX_PAYLOAD_TX;
+    case AL_WIRE_GET_BLOCKS:   return AL_WIRE_MAX_PAYLOAD_GET_BLOCKS;
+    case AL_WIRE_KEY_EXCHANGE: return AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE;
+    /* BLOCK, BLOCKS, PROPOSAL, VOTE, FINALITY, EVIDENCE may legitimately
+     * approach the global ceiling; rely on AL_WIRE_MAX_PAYLOAD alone. */
+    default:                   return AL_WIRE_MAX_PAYLOAD;
+    }
 }
 
 void al_wire_header_encode(al_writer *writer, al_wire_type type,

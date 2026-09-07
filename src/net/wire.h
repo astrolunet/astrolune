@@ -40,6 +40,20 @@ AL_EXTERN_C_BEGIN
  * headroom above any legal block while still bounding per-peer memory. */
 #define AL_WIRE_MAX_PAYLOAD      (16u * 1024u * 1024u)
 
+/* Per-type payload ceilings.  Messages that cannot legitimately approach the
+ * global limit are capped tighter so that a single malformed frame cannot
+ * force a large allocation before any payload bytes arrive. */
+#define AL_WIRE_MAX_PAYLOAD_HELLO       (128u)
+#define AL_WIRE_MAX_PAYLOAD_PING        (8u)
+#define AL_WIRE_MAX_PAYLOAD_PONG        (8u)
+#define AL_WIRE_MAX_PAYLOAD_TX          AL_TX_MAX_SIZE
+#define AL_WIRE_MAX_PAYLOAD_GET_BLOCKS  (16u)
+#define AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE (32u + 1u)
+
+/* Return the tightest applicable payload ceiling for `type`, or
+ * AL_WIRE_MAX_PAYLOAD for types without an explicit cap. */
+al_u32 al_wire_type_max_payload(al_wire_type type);
+
 typedef enum al_wire_type {
     AL_WIRE_HELLO     = 1,  /* handshake: identity, genesis, head          */
     AL_WIRE_PING      = 2,  /* keepalive probe                             */

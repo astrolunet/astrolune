@@ -26,6 +26,23 @@ void feed_bytes(al_p2p *network, al_size index, al_bytes chunk,
                 return;
             }
             peer->rx_type = (al_u8)header.type;
+
+            /* Before allocating a buffer for the payload, enforce per-type
+             * ceilings so that a single oversized frame cannot pin memory
+             * needlessly.  Unauthenticated peers may only send HELLO (whose
+             * payload is tiny) — reject anything else early. */
+            if (peer->state != AL_P2P_READY &&
+                (al_wire_type)header.type != AL_WIRE_HELLO) {
+                peer_close(network, index);
+                return;
+            }
+            al_u32 max_payload = al_wire_type_max_payload(
+                (al_wire_type)header.type);
+            if (header.payload_len > max_payload) {
+                peer_close(network, index);
+                return;
+            }
+
             if (header.payload_len == 0u) {
                 al_socket identity = peer->socket;
                 dispatch_frame(network, peer, header.type, al_bytes_empty(),
