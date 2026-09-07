@@ -135,7 +135,8 @@ static al_status counting_handler(void *userdata,
 #define HTTP_BUDGET 1000u
 
 static al_bool http_round_trip(al_rpc_server *server, al_u16 port,
-                               const char *body, char *out, al_size cap) {
+                               const char *extra_headers, const char *body,
+                               char *out, al_size cap) {
     AL_UNUSED(port);
     al_socket socket;
     if (al_net_connect("127.0.0.1", port, &socket) != AL_OK) {
@@ -146,8 +147,8 @@ static al_bool http_round_trip(al_rpc_server *server, al_u16 port,
     int length =
         snprintf(request, sizeof(request),
                  "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: "
-                 "application/json\r\nContent-Length: %llu\r\n\r\n%s",
-                 (unsigned long long)strlen(body), body);
+                 "application/json\r\n%sContent-Length: %llu\r\n\r\n%s",
+                 extra_headers, (unsigned long long)strlen(body), body);
     if (length <= 0 || (al_size)length >= sizeof(request)) {
         al_net_close(socket);
         return AL_FALSE;
@@ -214,7 +215,7 @@ AL_TEST(rpc_server_http_round_trip) {
     AL_CHECK_EQ_STATUS(al_net_local_port(server.listener, &port), AL_OK);
 
     char response[4096];
-    AL_CHECK(http_round_trip(&server, port,
+    AL_CHECK(http_round_trip(&server, port, "",
                              "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":"
                              "\"ping\"}",
                              response, sizeof(response)));
@@ -223,23 +224,57 @@ AL_TEST(rpc_server_http_round_trip) {
     AL_CHECK_EQ_U64((al_u64)calls, 1u);
 
     /* Unknown methods produce the standard error envelope. */
-    AL_CHECK(http_round_trip(&server, port,
+    AL_CHECK(http_round_trip(&server, port, "",
                              "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":"
                              "\"nope\"}",
                              response, sizeof(response)));
     AL_CHECK(strstr(response, "\"error\":{\"code\":-32601") != NULL);
 
     /* A handler that fails still yields a well-formed internal error. */
-    AL_CHECK(http_round_trip(&server, port,
+    AL_CHECK(http_round_trip(&server, port, "",
                              "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":"
                              "\"boom\"}",
                              response, sizeof(response)));
     AL_CHECK(strstr(response, "-32603") != NULL);
 
     /* Malformed JSON yields a parse error, not a crash. */
-    AL_CHECK(http_round_trip(&server, port, "{not json", response,
+    AL_CHECK(http_round_trip(&server, port, "", "{not json", response,
                              sizeof(response)));
     AL_CHECK(strstr(response, "-32700") != NULL);
+
+    al_rpc_server_close(&server);
+}
+
+AL_TEST(rpc_auth_requires_real_authorization_header) {
+    AL_CHECK(al_net_init());
+
+    al_rpc_server server;
+    al_size calls = 0u;
+    AL_CHECK_EQ_STATUS(
+        al_rpc_server_init(&server, "127.0.0.1", 0u, counting_handler,
+                           &calls),
+        AL_OK);
+    static const al_u8 token[] = "secret";
+    al_rpc_server_set_token(&server, token, sizeof(token) - 1u);
+
+    al_u16 port = 0u;
+    AL_CHECK_EQ_STATUS(al_net_local_port(server.listener, &port), AL_OK);
+
+    static const char body[] =
+        "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"ping\"}";
+    char response[4096];
+
+    AL_CHECK(http_round_trip(
+        &server, port, "X-Ignore: Authorization: Bearer secret\r\n", body,
+        response, sizeof(response)));
+    AL_CHECK(strstr(response, "authentication required") != NULL);
+    AL_CHECK_EQ_U64((al_u64)calls, 0u);
+
+    AL_CHECK(http_round_trip(&server, port,
+                             "Authorization: Bearer secret\r\n", body,
+                             response, sizeof(response)));
+    AL_CHECK(strstr(response, "\"result\":{\"pong\":true}") != NULL);
+    AL_CHECK_EQ_U64((al_u64)calls, 1u);
 
     al_rpc_server_close(&server);
 }
@@ -253,4 +288,5 @@ AL_TEST_MAIN {
     AL_RUN(json_rejects_malformed_input);
     AL_RUN(json_writer_shapes);
     AL_RUN(rpc_server_http_round_trip);
+    AL_RUN(rpc_auth_requires_real_authorization_header);
 }
