@@ -137,8 +137,15 @@ NODE_PIDS+=("$PID_2")
 sleep 3
 
 RUNNING=0
-for pid in "$PID_0" "$PID_1" "$PID_2"; do
-    kill -0 "$pid" 2>/dev/null && RUNNING=$((RUNNING + 1))
+for i in 0 1 2; do
+    pid_var="PID_$i"
+    pid="${!pid_var}"
+    if kill -0 "$pid" 2>/dev/null; then
+        RUNNING=$((RUNNING + 1))
+    else
+        echo "  WARN node-$i (pid $pid) exited early" >&2
+        [ -f "$WORK/node-$i.err" ] && head -10 "$WORK/node-$i.err" >&2
+    fi
 done
 check "three validators running" "[ '$RUNNING' -eq 3 ]"
 
@@ -152,6 +159,14 @@ if wait_for 20 "three-validator connectivity" \
     MESHED=true
 fi
 check "three live validators connected" "$MESHED"
+
+if [ "$MESHED" = "false" ]; then
+    echo "--- post-connectivity debug ---" >&2
+    for i in 0 1 2; do
+        echo "  node-$i stderr:" >&2
+        [ -f "$WORK/node-$i.err" ] && tail -5 "$WORK/node-$i.err" >&2
+    done
+fi
 
 # --- Transaction with one validator offline ---------------------------------
 
