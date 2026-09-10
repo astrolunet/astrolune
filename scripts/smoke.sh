@@ -220,12 +220,6 @@ G_B=$(echo "$INFO_B" | sed -n 's/.*"genesis":"0x\([0-9a-f]*\)".*/\1/p')
 check "same genesis binding" "[ '$G_A' = '$G_B' ]"
 
 # --- Contract deployment (Trocto -> container -> DEPLOY tx) ----------------
-#
-# NOTE: This block is executed BEFORE the restart/recovery test. Restart from
-# corrupted finality.log leaves daemon in a state where voting
-# does not converge for the next block (see logs: produced block N repeats
-# without finalized block N), so consensus operations should go to
-# a healthy cluster.
 
 if [ ! -x "$TROCTO" ]; then
     echo "  FAIL trocto binary not found" >&2
@@ -271,8 +265,7 @@ else
         "echo '$GET_ZERO' | grep -q '\"data\":\"0x0000000000000000\"'"
 
     # inc(5) submitted to A; executed in a block; visible via B.
-    # the deployment has already been accepted into the mempool with nonce == DEPLOY_NONCE, so
-    # the next nonce for the same signatory is DEPLOY_NONCE + 1.
+
     INC_NONCE=$((DEPLOY_NONCE + 1))
     "$ALNODE" make-tx call "$CONTRACT" 1 -a 5 \
         -o "$SMOKE/inc.txhex" --seed "$SEED_A" --nonce "$INC_NONCE" \
@@ -293,19 +286,18 @@ else
 fi
 
 # --- Restart from finalized storage ----------------------------------------
-#
-# this test deliberately breaks the finality.log tail and checks that the daemon 
-# truncates incomplete records and recovers from a finalized state..
-# after this test, consensus is not restored in the current build (round 
-# recovery bug in the daemon, so it is the last test before checking 
-# quorum loss and does not block contract tests.
 
 kill -9 "$PID_B" 2>/dev/null || true
 wait "$PID_B" 2>/dev/null || true
 sleep 0.5
-FINALITY_SIZE=$(stat -c%s "$SMOKE/nodeB/finality.log" 2>/dev/null || \
-                stat -f%z "$SMOKE/nodeB/finality.log" 2>/dev/null || echo 0)
-# Corrupt the finality log tail
+
+cp "$SMOKE/nodeB/finality.log" "$SMOKE/finality.before"
+FINALITY_SIZE=$(stat -c%s "$SMOKE/finality.before" 2>/dev/null || \
+                stat -f%z "$SMOKE/finality.before" 2>/dev/null || echo 0)
+ORIGINAL_PREFIX_HASH=$(sha256sum "$SMOKE/finality.before" | awk '{print $1}')
+
+# Corrupt the finality log tail: append a 5-byte partial record header
+# ("ALFC" + version 1) with no body. Recovery must truncate it.
 printf '\x41\x4c\x46\x43\x01' >> "$SMOKE/nodeB/finality.log"
 
 "$ALNODE" run "$SMOKE/genesis.bin" --config "$SMOKE/nodeB-config.toml" \
@@ -321,10 +313,11 @@ if wait_for 20 "validator restart with peer" \
 fi
 check "validator restarts from finalized storage" "$RESTARTED"
 
-FINALITY_SIZE_AFTER=$(stat -c%s "$SMOKE/nodeB/finality.log" 2>/dev/null || \
-                       stat -f%z "$SMOKE/nodeB/finality.log" 2>/dev/null || echo 0)
+RECOVERED_PREFIX_HASH=$(head -c "$FINALITY_SIZE" "$SMOKE/nodeB/finality.log" 2>/dev/null | \
+                        sha256sum | awk '{print $1}')
 check "recovery truncates an incomplete finality record" \
-    "[ '$FINALITY_SIZE_AFTER' = '$FINALITY_SIZE' ]"
+    "[ -n '$ORIGINAL_PREFIX_HASH' ] && [ '$RECOVERED_PREFIX_HASH' = '$ORIGINAL_PREFIX_HASH' ]" \
+    "before=$ORIGINAL_PREFIX_HASH after=$RECOVERED_PREFIX_HASH size_before=$FINALITY_SIZE size_after=$(stat -c%s "$SMOKE/nodeB/finality.log" 2>/dev/null || echo '?')"
 
 RECOVERED=$(rpc "$RPC_B" \
     "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"get_account\",\"params\":{\"address\":\"$ADDR_B\"}}")
