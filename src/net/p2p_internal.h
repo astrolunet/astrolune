@@ -28,7 +28,7 @@
 
 /* Rate limiting: token bucket capacities (messages per second). */
 #define P2P_RATE_TX_MAX        20u   /* 20 transactions/second per peer */
-#define P2P_RATE_BLOCK_MAX      5u   /* 5 blocks/second per peer */
+#define P2P_RATE_BLOCK_MAX    300u   /* 300 blocks/second per peer (range sync burst) */
 #define P2P_RATE_CONSENSUS_MAX 50u   /* 50 consensus messages/second per peer */
 #define P2P_RATE_REFILL_MS   1000u   /* refill interval: 1 second */
 

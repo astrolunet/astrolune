@@ -384,9 +384,9 @@ AL_ABI_OFFSET(al_potb_params, reward_bonded_bp,         128);
 AL_ABI_OFFSET(al_potb_params, reward_max_multiple,      136);
 AL_ABI_OFFSET(al_potb_params, gini_max,                 144);
 AL_ABI_OFFSET(al_potb_params, hhi_max,                  152);
-AL_ABI_OFFSET(al_potb_params, committee_size_min,       160);
-AL_ABI_OFFSET(al_potb_params, committee_size_max,       164);
-AL_ABI_OFFSET(al_potb_params, max_group_weight_share,   168);
+AL_ABI_OFFSET(al_potb_params, max_group_weight_share,   160);
+AL_ABI_OFFSET(al_potb_params, committee_size_min,       168);
+AL_ABI_OFFSET(al_potb_params, committee_size_max,       172);
 AL_ABI_OFFSET(al_potb_params, genesis_bonus_initial,    176);
 AL_ABI_OFFSET(al_potb_params, genesis_dilution_days,    184);
 
@@ -472,7 +472,7 @@ AL_ABI_ALIGN(al_genesis_allocation, 8);
 AL_ABI_OFFSET(al_genesis_allocation, address,  0);
 AL_ABI_OFFSET(al_genesis_allocation, balance, 32);
 
-AL_ABI_SIZE(al_genesis, 832);
+AL_ABI_SIZE(al_genesis, 856);
 AL_ABI_ALIGN(al_genesis, 8);
 AL_ABI_OFFSET(al_genesis, version,                   0);
 AL_ABI_OFFSET(al_genesis, chain_id,                  4);
@@ -483,8 +483,8 @@ AL_ABI_OFFSET(al_genesis, vm_stack_limit,          624);
 AL_ABI_OFFSET(al_genesis, vm_memory_limit,         632);
 AL_ABI_OFFSET(al_genesis, vm_call_depth_limit,     640);
 AL_ABI_OFFSET(al_genesis, potb,                    648);
-AL_ABI_OFFSET(al_genesis, allocations,             816);
-AL_ABI_OFFSET(al_genesis, allocation_count,        824);
+AL_ABI_OFFSET(al_genesis, allocations,             840);
+AL_ABI_OFFSET(al_genesis, allocation_count,        848);
 
 AL_ABI_SIZE(al_block_header, 344);
 AL_ABI_ALIGN(al_block_header, 8);
