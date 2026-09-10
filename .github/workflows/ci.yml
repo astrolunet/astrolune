@@ -35,6 +35,14 @@ jobs:
           submodules: recursive
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
+      - name: Install libsodium (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsodium-dev
+      - name: Install libsodium (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install libsodium:x64-windows
+          echo "Sodium_ROOT=C:/vcpkg/installed/x64-windows" >> $env:GITHUB_ENV
       - run: cmake --workflow --preset ci
       - name: Produce determinism digest
         run: ./build/ci/bin/determinism_fixture > determinism-${{ matrix.id }}.txt
