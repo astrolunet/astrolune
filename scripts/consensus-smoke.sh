@@ -97,11 +97,15 @@ check "four validator identities and genesis created" \
     "[ -f '$WORK/genesis.bin' ] && [ ${#PUBLIC_KEYS[@]} -eq 4 ]"
 
 # --- Launch validators -----------------------------------------------------
+#
+# NOTE: alnode accepts only the split form `--flag value` for CLI options;
+# the `--flag=value` form is rejected with "unknown flag". All options below
+# use the split form.
 
 # Node 0: peers to 1, 2
-ARGS_0=('run' "$WORK/genesis.bin" '--no-config' "--datadir=$WORK/node-0"
+ARGS_0=('run' "$WORK/genesis.bin" '--no-config' '--datadir' "$WORK/node-0"
     '--p2p' "127.0.0.1:${P2P_PORTS[0]}" '--rpc' "127.0.0.1:${RPC_PORTS[0]}"
-    "--proposer-seed=${SEEDS[0]}" '--interval' '800' '--round-timeout' '1200'
+    '--proposer-seed' "${SEEDS[0]}" '--interval' '800' '--round-timeout' '1200'
     '--allow-insecure-crypto' '--unsafe-rpc')
 for pk in "${PUBLIC_KEYS[@]}"; do ARGS_0+=('--validator' "$pk"); done
 ARGS_0+=('--peer' "127.0.0.1:${P2P_PORTS[1]}" '--peer' "127.0.0.1:${P2P_PORTS[2]}")
@@ -111,9 +115,9 @@ PID_0=$!
 NODE_PIDS+=("$PID_0")
 
 # Node 1: peers to 0
-ARGS_1=('run' "$WORK/genesis.bin" '--no-config' "--datadir=$WORK/node-1"
+ARGS_1=('run' "$WORK/genesis.bin" '--no-config' '--datadir' "$WORK/node-1"
     '--p2p' "127.0.0.1:${P2P_PORTS[1]}" '--rpc' "127.0.0.1:${RPC_PORTS[1]}"
-    "--proposer-seed=${SEEDS[1]}" '--interval' '800' '--round-timeout' '1200'
+    '--proposer-seed' "${SEEDS[1]}" '--interval' '800' '--round-timeout' '1200'
     '--allow-insecure-crypto' '--unsafe-rpc')
 for pk in "${PUBLIC_KEYS[@]}"; do ARGS_1+=('--validator' "$pk"); done
 ARGS_1+=('--peer' "127.0.0.1:${P2P_PORTS[0]}")
@@ -123,9 +127,9 @@ PID_1=$!
 NODE_PIDS+=("$PID_1")
 
 # Node 2: peers to 0
-ARGS_2=('run' "$WORK/genesis.bin" '--no-config' "--datadir=$WORK/node-2"
+ARGS_2=('run' "$WORK/genesis.bin" '--no-config' '--datadir' "$WORK/node-2"
     '--p2p' "127.0.0.1:${P2P_PORTS[2]}" '--rpc' "127.0.0.1:${RPC_PORTS[2]}"
-    "--proposer-seed=${SEEDS[2]}" '--interval' '800' '--round-timeout' '1200'
+    '--proposer-seed' "${SEEDS[2]}" '--interval' '800' '--round-timeout' '1200'
     '--allow-insecure-crypto' '--unsafe-rpc')
 for pk in "${PUBLIC_KEYS[@]}"; do ARGS_2+=('--validator' "$pk"); done
 ARGS_2+=('--peer' "127.0.0.1:${P2P_PORTS[0]}")

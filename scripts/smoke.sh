@@ -235,9 +235,9 @@ PID_B=$!
 NODE_PIDS[${#NODE_PIDS[@]}-1]=$PID_B
 
 RESTARTED=false
-if wait_for 15 "validator restart" \
+if wait_for 20 "validator restart with peer" \
     "rpc $RPC_B '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"get_info\"}' | grep -q '\"height\":' && \
-     rpc $RPC_B '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"get_info\"}' | grep -q '\"peers\":'"; then
+     rpc $RPC_B '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"get_info\"}' | grep -q '\"peers\":[1-9]'"; then
     RESTARTED=true
 fi
 check "validator restarts from finalized storage" "$RESTARTED"
@@ -253,12 +253,16 @@ check "finalized state survives restart" \
     "echo '$RECOVERED' | grep -q '\"balance\":$EXPECTED'"
 
 # Wait for restarted node B to fully catch up with A before deploying.
-wait_for 15 "post-restart chain sync" \
+SYNCED=false
+if wait_for 30 "post-restart chain sync" \
     "rpc $RPC_A '{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"get_info\"}' | \
      sed -n 's/.*\"height\":\([0-9]*\).*/\1/p' > /tmp/h_a && \
      rpc $RPC_B '{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"get_info\"}' | \
      sed -n 's/.*\"height\":\([0-9]*\).*/\1/p' > /tmp/h_b && \
-     [ -s /tmp/h_a ] && [ -s /tmp/h_b ] && [ \"\$(cat /tmp/h_a)\" = \"\$(cat /tmp/h_b)\" ]" || true
+     [ -s /tmp/h_a ] && [ -s /tmp/h_b ] && [ \"\$(cat /tmp/h_a)\" = \"\$(cat /tmp/h_b)\" ]"; then
+    SYNCED=true
+fi
+check "post-restart chain sync" "$SYNCED"
 
 # --- Contract deployment (Trocto -> container -> DEPLOY tx) ----------------
 
@@ -306,7 +310,9 @@ else
         "echo '$GET_ZERO' | grep -q '\"data\":\"0x0000000000000000\"'"
 
     # inc(5) submitted to A; executed in a block; visible via B.
-    INC_NONCE=$(GET_NONCE "$RPC_A" "$ADDR_A")
+    # the deployment has already been accepted into the mempool with nonce == DEPLOY_NONCE, so
+    # the next nonce for the same signatory is DEPLOY_NONCE + 1.
+    INC_NONCE=$((DEPLOY_NONCE + 1))
     "$ALNODE" make-tx call "$CONTRACT" 1 -a 5 \
         -o "$SMOKE/inc.txhex" --seed "$SEED_A" --nonce "$INC_NONCE" \
         --chain-id 1337 2>/dev/null
@@ -363,11 +369,11 @@ if [ "$FAILURES" -eq 0 ]; then
     exit 0
 fi
 echo "SMOKE FAILED ($FAILURES assertion(s))"
-for tag in a b; do
+for tag in a b b-restart; do
     err="$SMOKE/$tag.err"
     if [ -f "$err" ]; then
         echo "--- node $tag stderr ---"
-        head -20 "$err"
+        head -30 "$err"
     fi
 done
 exit 1
