@@ -77,6 +77,11 @@ trap cleanup EXIT
 
 # --- Reset ----------------------------------------------------------------
 
+# Kill any leftover alnode processes from prior runs on these ports.
+pkill -f 'alnode.*451' 2>/dev/null || true
+pkill -f 'alnode.*452' 2>/dev/null || true
+sleep 0.5
+
 rm -rf "$SMOKE"
 mkdir -p "$SMOKE"
 
@@ -246,6 +251,14 @@ RECOVERED=$(rpc "$RPC_B" \
     "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"get_account\",\"params\":{\"address\":\"$ADDR_B\"}}")
 check "finalized state survives restart" \
     "echo '$RECOVERED' | grep -q '\"balance\":$EXPECTED'"
+
+# Wait for restarted node B to fully catch up with A before deploying.
+wait_for 15 "post-restart chain sync" \
+    "rpc $RPC_A '{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"get_info\"}' | \
+     sed -n 's/.*\"height\":\([0-9]*\).*/\1/p' > /tmp/h_a && \
+     rpc $RPC_B '{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"get_info\"}' | \
+     sed -n 's/.*\"height\":\([0-9]*\).*/\1/p' > /tmp/h_b && \
+     [ -s /tmp/h_a ] && [ -s /tmp/h_b ] && [ \"\$(cat /tmp/h_a)\" = \"\$(cat /tmp/h_b)\" ]" || true
 
 # --- Contract deployment (Trocto -> container -> DEPLOY tx) ----------------
 

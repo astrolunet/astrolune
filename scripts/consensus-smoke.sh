@@ -70,6 +70,11 @@ trap cleanup EXIT
 
 # --- Reset ----------------------------------------------------------------
 
+# Kill any leftover alnode processes from prior runs on these ports.
+pkill -f 'alnode.*4610' 2>/dev/null || true
+pkill -f 'alnode.*4620' 2>/dev/null || true
+sleep 0.5
+
 rm -rf "$WORK"
 mkdir -p "$WORK"
 
@@ -129,7 +134,7 @@ ARGS_2+=('--peer' "127.0.0.1:${P2P_PORTS[0]}")
 PID_2=$!
 NODE_PIDS+=("$PID_2")
 
-sleep 1
+sleep 3
 
 RUNNING=0
 for pid in "$PID_0" "$PID_1" "$PID_2"; do
