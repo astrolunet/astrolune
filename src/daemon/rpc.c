@@ -476,8 +476,7 @@ al_status daemon_rpc_handler(void *userdata,
             rs = al_block_decode(al_bytes_make(encoded, encoded_cap),
                                  daemon->block_transactions,
                                  AL_BLOCK_MAX_TRANSACTIONS, &block);
-            free(encoded);
-            if (rs != AL_OK) continue;
+            if (rs != AL_OK) { free(encoded); continue; }
 
             al_hash256 block_hash;
             al_block_header_hash(&block.header, &block_hash);
@@ -510,6 +509,7 @@ al_status daemon_rpc_handler(void *userdata,
                 write_hash_string(body, tx_buf);
             }
             al_json_writer_raw(body, "]}");
+            free(encoded);
         }
         al_json_writer_raw(body, "]");
         return AL_OK;
@@ -549,8 +549,7 @@ al_status daemon_rpc_handler(void *userdata,
             rs = al_block_decode(al_bytes_make(encoded, encoded_cap),
                                  daemon->block_transactions,
                                  AL_BLOCK_MAX_TRANSACTIONS, &block);
-            free(encoded);
-            if (rs != AL_OK) continue;
+            if (rs != AL_OK) { free(encoded); continue; }
 
             for (al_size t = 0u; t < block.transaction_count && found < limit;
                  ++t) {
@@ -591,6 +590,7 @@ al_status daemon_rpc_handler(void *userdata,
                 al_json_writer_raw(body, "}");
                 found++;
             }
+            free(encoded);
         }
         al_json_writer_raw(body, "]");
         return AL_OK;

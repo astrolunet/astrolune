@@ -204,6 +204,7 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_potb_cod),
     AL_ABI_SYM(al_potb_weight_compute),
     AL_ABI_SYM(al_potb_weight_total),
+    AL_ABI_SYM(al_potb_weight_effective_total),
     AL_ABI_SYM(al_potb_level_of),
     AL_ABI_SYM(al_potb_level_str),
     AL_ABI_SYM(al_potb_is_suspicious_cluster),
@@ -339,8 +340,8 @@ extern const al_abi_fn al_abi_symbols[] = {
 extern const std::size_t al_abi_symbol_count =
     sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]);
 
-/* 8 + 39 + 12 + 20 + 25 + 28 + 38 + 6 + 7 + 8 + 13 + 32 + 15 + 8. Catches an entry lost to a
+/* 8 + 39 + 12 + 20 + 25 + 28 + 38 + 6 + 7 + 8 + 13 + 32 + 15 + 9. Catches an entry lost to a
  * bad merge; does not catch a function added to a header and never listed. */
-static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 253u,
-              "ABI: the public surface is 253 functions (2 added: group weight, genesis dilution) - "
+static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 254u,
+              "ABI: the public surface is 254 functions (group weight effective total added) - "
               "update the table and this count together, or say why the surface changed");

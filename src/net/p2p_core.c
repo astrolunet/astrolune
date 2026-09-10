@@ -40,7 +40,7 @@ al_bool rate_limit_check(al_u32 *tokens, al_u32 max_tokens,
     al_u64 elapsed = (now_ms > *last_refill_ms) ? (now_ms - *last_refill_ms) : 0u;
     if (elapsed >= P2P_RATE_REFILL_MS) {
         /* Refill: add tokens proportional to elapsed time, capped at max. */
-        al_u64 refill = elapsed / P2P_RATE_REFILL_MS;
+        al_u64 refill = (elapsed / P2P_RATE_REFILL_MS) * (al_u64)max_tokens;
         al_u64 new_tokens = (al_u64)*tokens + refill;
         *tokens = (new_tokens > (al_u64)max_tokens) ? max_tokens : (al_u32)new_tokens;
         *last_refill_ms = now_ms;

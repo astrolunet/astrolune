@@ -445,6 +445,15 @@ AL_PUBLIC void al_potb_weight_compute(const al_potb_params *p, const al_potb_rec
 AL_PUBLIC al_fixed al_potb_weight_total(const al_potb_params *p, const al_potb_record *r,
                              const al_potb_network_stats *net, al_u32 now_day);
 
+/* Effective total weight after applying the group share limit.
+ * When group_total_weight > 0, scales the raw weight down if the node's
+ * correlation group exceeds max_group_weight_share of total_network_weight.
+ * When group_total_weight == 0, returns the same as al_potb_weight_total. */
+AL_PUBLIC al_fixed al_potb_weight_effective_total(
+    const al_potb_params *p, const al_potb_record *r,
+    const al_potb_network_stats *net, al_u32 now_day,
+    al_fixed group_total_weight, al_fixed total_network_weight);
+
 /*
  * Effective weight after applying the group share limit (Q16).
  *

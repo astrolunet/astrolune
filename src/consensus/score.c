@@ -73,9 +73,10 @@ al_potb_params al_potb_params_default(void) {
     /* --- Committee size randomization (B3) --- */
 
     /* --- Genesis dilution (B2) --- */
-    /* Genesis nodes receive an additive bonus that linearly decays over 24
-     * months (720 days). The initial value is subject to calibration. */
-    p.genesis_bonus_initial = al_fixed_from_int(2);
+    /* Genesis nodes can receive an additive bonus that linearly decays over
+     * genesis_dilution_days. Default 0 (no bonus); set explicitly in genesis
+     * init when desired. */
+    p.genesis_bonus_initial = 0;
     p.genesis_dilution_days = 720u;
 
     /* --- Epoch ------------------------------------------------------------ */
@@ -277,9 +278,14 @@ al_fixed al_potb_tbs(const al_potb_params *p, const al_potb_record *r,
     score = al_fixed_add(score, al_potb_loyalty_bonus(p, r->uptime_days));
 
     /* Genesis bonus (B2): additive term that linearly dilutes over time.
-     * Only applies when genesis_bonus > 0 (set during genesis init). */
-    if (r->genesis_bonus > 0) {
-        score = al_fixed_add(score, r->genesis_bonus);
+     * Only applies when genesis_bonus_initial > 0 (set during genesis init). */
+    if (p->genesis_bonus_initial > 0) {
+        al_u32 days_since = (now_day > r->first_seen_day)
+                            ? (now_day - r->first_seen_day) : 0u;
+        al_fixed diluted = al_potb_genesis_bonus_dilute(p, days_since);
+        if (diluted > 0) {
+            score = al_fixed_add(score, diluted);
+        }
     }
 
     /* Decay for time spent idle. now_day before last_active_day means the caller
@@ -622,6 +628,26 @@ al_fixed al_potb_weight_total(const al_potb_params *p, const al_potb_record *r,
                              const al_potb_network_stats *net, al_u32 now_day) {
     al_potb_weight w;
     al_potb_weight_compute(p, r, net, now_day, &w);
+    return w.total;
+}
+
+/* Effective total weight after applying the group share limit (Q16).
+ * Computes raw weight, then scales down if the node's correlation group
+ * exceeds max_group_weight_share of total_network_weight. */
+al_fixed al_potb_weight_effective_total(const al_potb_params *p,
+                                        const al_potb_record *r,
+                                        const al_potb_network_stats *net,
+                                        al_u32 now_day,
+                                        al_fixed group_total_weight,
+                                        al_fixed total_network_weight) {
+    al_potb_weight w;
+    al_potb_weight_compute(p, r, net, now_day, &w);
+    if (group_total_weight > 0 && total_network_weight > 0 &&
+        p->max_group_weight_share > 0) {
+        return al_potb_weight_effective(p, w.raw_total,
+                                        group_total_weight,
+                                        total_network_weight);
+    }
     return w.total;
 }
 
