@@ -29,9 +29,9 @@ astrolune_add_core_library(al_base
 
 # --- al_crypto: SHA-256, HMAC, HKDF, Merkle, keys, signatures -----------------
 #
-# Signatures are selected at configure time. VRF/VDF remain an explicitly
-# insecure shared development implementation until their protocol choices are
-# resolved, so even a sodium build does not claim full production security.
+# Signatures are selected at configure time. The default is libsodium (real
+# Ed25519). The dev backend is available for testing but is rejected in
+# production builds (Release/RelWithDebInfo) at configure time.
 if(ASTROLUNE_CRYPTO_BACKEND STREQUAL "dev")
   set(ASTROLUNE_SIGNATURE_SOURCE crypto/dev_backend.c)
   set(ASTROLUNE_CRYPTO_PRIVATE_DEPS "")

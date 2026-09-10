@@ -22,12 +22,24 @@ option(ASTROLUNE_LTO           "Enable link-time optimisation in Release" OFF)
 option(ASTROLUNE_UNITY         "Enable unity builds (faster clean builds)" OFF)
 option(ASTROLUNE_NATIVE_ARCH   "Optimise for the building machine's CPU" OFF)
 
-# Signature implementations are selected explicitly. Keeping development as the
-# default preserves dependency-free simulation builds; production-oriented
-# builds opt into the reviewed libsodium implementation and must provide it.
-set(ASTROLUNE_CRYPTO_BACKEND "dev" CACHE STRING
+# Signature implementations are selected explicitly. The default is libsodium
+# (real Ed25519, RFC 8032). The dev backend is available for dependency-free
+# simulation and testing but must NEVER be used in production builds.
+set(ASTROLUNE_CRYPTO_BACKEND "sodium" CACHE STRING
     "Signature backend: dev|sodium")
 set_property(CACHE ASTROLUNE_CRYPTO_BACKEND PROPERTY STRINGS dev sodium)
+
+# Production safety: the dev crypto backend is NEVER allowed in release/dist
+# builds. This is enforced at configure time, not at runtime.
+if(ASTROLUNE_CRYPTO_BACKEND STREQUAL "dev")
+  if(CMAKE_BUILD_TYPE STREQUAL "Release" OR
+     CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    message(FATAL_ERROR
+        "ASTROLUNE_CRYPTO_BACKEND=dev is NOT allowed in production builds "
+        "(CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}). Use 'sodium' for real "
+        "Ed25519 signatures. The dev backend exists for debugging and testing only.")
+  endif()
+endif()
 
 set(ASTROLUNE_SANITIZER "none" CACHE STRING
     "Sanitizer to enable: none|address|undefined|address+undefined|thread|memory")

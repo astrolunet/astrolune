@@ -25,13 +25,18 @@ const char *al_potb_offence_str(al_potb_offence offence) {
 
 al_fixed al_potb_penalty_for(al_potb_offence offence) {
     switch (offence) {
-        case AL_POTB_OFFENCE_VOTE_MISS:       return AL_FX(95, 100);
-        case AL_POTB_OFFENCE_SYSTEMATIC_MISS: return AL_FX(95, 100);
-        case AL_POTB_OFFENCE_BAD_RESPONSE:    return AL_FX(90, 100);
+        /* A single miss excused if below 2x median: minor penalty. */
+        case AL_POTB_OFFENCE_VOTE_MISS:       return AL_FX(97, 100);   /* 0.97 */
+        /* Persistent misses above median: unconditional, harsher. */
+        case AL_POTB_OFFENCE_SYSTEMATIC_MISS: return AL_FX(90, 100);   /* 0.90 */
+        /* One bad response - possibly a network fault, so treated lightly. */
+        case AL_POTB_OFFENCE_BAD_RESPONSE:    return AL_FX(95, 100);   /* 0.95 */
+        /* Bad responses at a rate the median does not explain. */
         case AL_POTB_OFFENCE_SYSTEMATIC_BAD_RESPONSE: return AL_FX(80, 100);
         case AL_POTB_OFFENCE_DOUBLE_SIGN:     return AL_FX(10, 100);
         case AL_POTB_OFFENCE_REPEAT_DOUBLE_SIGN: return 0;
-        case AL_POTB_OFFENCE_CHALLENGE_MISS:  return AL_FX(80, 100);
+        /* Systematic non-response to external challenges. */
+        case AL_POTB_OFFENCE_CHALLENGE_MISS:  return AL_FX(85, 100);   /* 0.85 */
         case AL_POTB_OFFENCE_SENTINEL:        break;
     }
     return AL_FIXED_ONE;

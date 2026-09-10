@@ -211,5 +211,17 @@ al_status al_daemon_config_validate(const al_daemon_config *config) {
     if (!log_level_valid(config->log_level)) {
         return AL_ERR_INVALID_ARG;
     }
+    /* round_timeout_ms: 0 means use the default (6000), otherwise clamp to
+     * [100, 3600000] to prevent round-storm or effectively-infinite hangs. */
+    if (config->round_timeout_ms != 0u &&
+        (config->round_timeout_ms < 100u || config->round_timeout_ms > 3600000u)) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    /* block_interval_ms: 0 disables timed production (valid), otherwise
+     * clamp to [100, 3600000] to prevent pathological block rates. */
+    if (config->block_interval_ms != 0u &&
+        (config->block_interval_ms < 100u || config->block_interval_ms > 3600000u)) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
     return AL_OK;
 }

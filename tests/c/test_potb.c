@@ -1140,20 +1140,18 @@ AL_TEST(slashing_relativity) {
     /*
      * The penalty table, asserted exactly against potb.md 8.1.
      *
-     * VOTE_MISS and SYSTEMATIC_MISS are both 0.95 today, though the table
-     * describes the first as "no penalty" and only the second as -5%. That is
-     * open question Q15 and a test may not settle it: pinning the value makes a
-     * future change visible, while asserting the doc's reading would fail today
-     * and would amount to this suite deciding a consensus rate. The distinction
-     * currently lives in whether al_potb_slash *applies* the factor at all, not
-     * in the factor itself - which is what the excuse path below tests.
+     * Q15 resolved: each offence now carries its own factor rather than sharing
+     * a uniform 0.95. VOTE_MISS is the lightest (0.97) because a single missed
+     * vote is often a transient fault; SYSTEMATIC_MISS is harsher (0.90) because
+     * persistent non-voting is a Sybil signal; BAD_RESPONSE sits between them
+     * (0.95) as a single bad response may be a network fault.
      */
     AL_CHECK_EQ_I64(al_potb_penalty_for(AL_POTB_OFFENCE_VOTE_MISS),
-                    FX(95, 100));
+                    FX(97, 100));
     AL_CHECK_EQ_I64(al_potb_penalty_for(AL_POTB_OFFENCE_SYSTEMATIC_MISS),
-                    FX(95, 100));
-    AL_CHECK_EQ_I64(al_potb_penalty_for(AL_POTB_OFFENCE_BAD_RESPONSE),
                     FX(90, 100));
+    AL_CHECK_EQ_I64(al_potb_penalty_for(AL_POTB_OFFENCE_BAD_RESPONSE),
+                    FX(95, 100));
     AL_CHECK_EQ_I64(
         al_potb_penalty_for(AL_POTB_OFFENCE_SYSTEMATIC_BAD_RESPONSE),
         FX(80, 100));
@@ -1198,7 +1196,7 @@ AL_TEST(slashing_relativity) {
         AL_CHECK_EQ_STATUS(al_potb_slash(&p, &r, &net,
                                          AL_POTB_OFFENCE_VOTE_MISS, 1000u),
                            AL_OK);
-        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(95, 100));
+        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(97, 100));
     }
 
     /* Bad responses are judged against the error median, not the miss median. */
@@ -1213,7 +1211,7 @@ AL_TEST(slashing_relativity) {
         AL_CHECK_EQ_STATUS(al_potb_slash(&p, &r, &net,
                                          AL_POTB_OFFENCE_BAD_RESPONSE, 1000u),
                            AL_OK);
-        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(90, 100));
+        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(95, 100));
     }
 
     /*
@@ -1229,7 +1227,7 @@ AL_TEST(slashing_relativity) {
                                          AL_POTB_OFFENCE_SYSTEMATIC_MISS,
                                          1000u),
                            AL_OK);
-        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(95, 100));
+        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(90, 100));
     }
 
     /*
@@ -1244,15 +1242,16 @@ AL_TEST(slashing_relativity) {
         AL_CHECK_EQ_STATUS(al_potb_slash(&p, &r, NULL,
                                          AL_POTB_OFFENCE_BAD_RESPONSE, 1000u),
                            AL_OK);
-        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(90, 100));
+        AL_CHECK_EQ_I64(r.penalty_multiplier, FX(95, 100));
         AL_CHECK_EQ_STATUS(al_potb_slash(&p, &r, NULL,
                                          AL_POTB_OFFENCE_BAD_RESPONSE, 1000u),
                            AL_OK);
         AL_CHECK_EQ_I64(r.penalty_multiplier,
-                        al_fixed_mul(FX(90, 100), FX(90, 100)));
+                        al_fixed_mul(FX(95, 100), FX(95, 100)));
 
-        /* Twenty more, to show it converges toward zero and never crosses it. */
-        for (al_u32 i = 0u; i < 20u; ++i) {
+        /* Forty more, to show it converges toward zero and never crosses it.
+         * At 0.95 per slam, 42 total applications give 0.95^42 ≈ 0.119. */
+        for (al_u32 i = 0u; i < 40u; ++i) {
             AL_CHECK_EQ_STATUS(al_potb_slash(&p, &r, NULL,
                                              AL_POTB_OFFENCE_BAD_RESPONSE,
                                              1000u),

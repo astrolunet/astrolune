@@ -4,6 +4,12 @@
 
 void handle_transaction(al_p2p *network, al_p2p_peer *origin,
                         al_bytes payload) {
+    /* Rate limit: reject flood from this peer. */
+    if (origin != NULL &&
+        !rate_limit_check(&origin->rate_tx_tokens, origin->rate_tx_max,
+                          &origin->rate_tx_refill_ms, al_net_now_ms())) {
+        return;
+    }
     al_hash256 hash;
     al_sha256_bytes(payload, &hash);
     if (seen_contains(network->seen_transactions, &hash)) return;
@@ -21,6 +27,12 @@ void handle_transaction(al_p2p *network, al_p2p_peer *origin,
 
 void handle_block(al_p2p *network, al_p2p_peer *origin,
                   al_bytes payload) {
+    /* Rate limit: reject flood from this peer. */
+    if (origin != NULL &&
+        !rate_limit_check(&origin->rate_block_tokens, origin->rate_block_max,
+                          &origin->rate_block_refill_ms, al_net_now_ms())) {
+        return;
+    }
     al_hash256 hash;
     al_sha256_bytes(payload, &hash);
     if (seen_contains(network->seen_blocks, &hash)) return;
@@ -36,6 +48,13 @@ void handle_block(al_p2p *network, al_p2p_peer *origin,
 
 void handle_consensus(al_p2p *network, al_p2p_peer *origin,
                       al_wire_type type, al_bytes payload) {
+    /* Rate limit: reject flood from this peer. */
+    if (origin != NULL &&
+        !rate_limit_check(&origin->rate_consensus_tokens,
+                          origin->rate_consensus_max,
+                          &origin->rate_consensus_refill_ms, al_net_now_ms())) {
+        return;
+    }
     al_hash256 hash;
     al_sha256_ctx context;
     al_sha256_init(&context);

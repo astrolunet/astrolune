@@ -24,6 +24,7 @@ al_status daemon_consensus_timeout(al_daemon *daemon, al_u64 now_ms) {
         AL_TRY(daemon_pending_clear(daemon));
     }
     if (daemon->consensus_round == UINT32_MAX) {
+        daemon->fatal_error = AL_TRUE;
         return AL_ERR_OUT_OF_RANGE;
     }
     ++daemon->consensus_round;
@@ -60,6 +61,7 @@ al_bool al_daemon_run(al_daemon *daemon) {
         al_status timeout_status = daemon_consensus_timeout(daemon, now_ms);
         if (timeout_status != AL_OK) {
             DAEMON_LOG(daemon, "consensus round transition failed");
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             continue;
         }
@@ -87,7 +89,7 @@ al_bool al_daemon_run(al_daemon *daemon) {
                                     (al_u64)daemon->config.block_interval_ms;
         }
     }
-    return AL_TRUE;
+    return daemon->fatal_error ? AL_FALSE : AL_TRUE;
 }
 
 al_bool daemon_on_proposal(al_daemon *daemon, al_bytes encoded) {
@@ -140,16 +142,21 @@ al_bool daemon_on_proposal(al_daemon *daemon, al_bytes encoded) {
     al_status status = al_node_accept_encoded_block(&daemon->node, wire.block);
     al_status restore_status = daemon_round_checkpoint_restore(daemon);
     if (status != AL_OK || restore_status != AL_OK) {
-        if (restore_status != AL_OK) daemon->stop_requested = AL_TRUE;
+        if (restore_status != AL_OK) {
+            daemon->fatal_error = AL_TRUE;
+            daemon->stop_requested = AL_TRUE;
+        }
         return AL_FALSE;
     }
     if (daemon_pending_begin(daemon, wire.block, &block_hash,
                              wire.consensus.height,
                              wire.consensus.round) != AL_OK) {
+        daemon->fatal_error = AL_TRUE;
         daemon->stop_requested = AL_TRUE;
         return AL_FALSE;
     }
     if (daemon_consensus_prevote(daemon) != AL_OK) {
+        daemon->fatal_error = AL_TRUE;
         daemon->stop_requested = AL_TRUE;
         return AL_FALSE;
     }
@@ -174,6 +181,7 @@ al_bool daemon_on_vote(al_daemon *daemon, al_bytes encoded) {
     if (status != AL_OK) return AL_FALSE;
     status = daemon_consensus_advance(daemon);
     if (status != AL_OK) {
+        daemon->fatal_error = AL_TRUE;
         daemon->stop_requested = AL_TRUE;
         return AL_FALSE;
     }
@@ -249,18 +257,23 @@ al_bool daemon_on_finality(void *userdata, al_bytes encoded) {
             al_node_accept_encoded_block(&daemon->node, finalized.block);
         al_status restore_status = daemon_round_checkpoint_restore(daemon);
         if (validation != AL_OK || restore_status != AL_OK) {
-            if (restore_status != AL_OK) daemon->stop_requested = AL_TRUE;
+            if (restore_status != AL_OK) {
+                daemon->fatal_error = AL_TRUE;
+                daemon->stop_requested = AL_TRUE;
+            }
             return AL_FALSE;
         }
         if (daemon_pending_begin(daemon, finalized.block, &block_hash,
                                  certificate.height,
                                  certificate.round) != AL_OK) {
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             return AL_FALSE;
         }
     }
     al_status status = daemon_finalize_pending(daemon, &certificate);
     if (status != AL_OK) {
+        daemon->fatal_error = AL_TRUE;
         daemon->stop_requested = AL_TRUE;
         return AL_FALSE;
     }

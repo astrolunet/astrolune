@@ -65,7 +65,19 @@ al_potb_params al_potb_params_default(void) {
     p.gini_max              = AL_FX(9, 20);  /* 0.45 */
     p.hhi_max              = AL_FX(1, 50);   /* 0.02 */
 
+    /* --- Group weight limit (Q16 / A5) --- */
+    /* 3% maximum share of total network weight per correlated group.
+     * Starting point subject to calibration on the testbed. */
+    p.max_group_weight_share = AL_FX(3, 100);
+
     /* --- Committee size randomization (B3) --- */
+
+    /* --- Genesis dilution (B2) --- */
+    /* Genesis nodes can receive an additive bonus that linearly decays over
+     * genesis_dilution_days. Default 0 (no bonus); set explicitly in genesis
+     * init when desired. */
+    p.genesis_bonus_initial = 0;
+    p.genesis_dilution_days = 720u;
 
     /* --- Epoch ------------------------------------------------------------ */
     p.epoch_days = 1u;
@@ -128,6 +140,12 @@ al_status al_potb_params_validate(const al_potb_params *p) {
         return AL_ERR_OUT_OF_RANGE;
     }
     if (p->hhi_max < 0 || p->hhi_max > AL_FIXED_ONE) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    if (p->max_group_weight_share < 0 || p->max_group_weight_share > AL_FIXED_ONE) {
+        return AL_ERR_OUT_OF_RANGE;
+    }
+    if (p->genesis_bonus_initial < 0) {
         return AL_ERR_OUT_OF_RANGE;
     }
     return AL_OK;
@@ -209,6 +227,25 @@ al_fixed al_potb_loyalty_bonus(const al_potb_params *p, al_u32 uptime_days) {
     return al_fixed_min(bonus, p->cap_loyalty);
 }
 
+al_fixed al_potb_genesis_bonus_dilute(const al_potb_params *p,
+                                      al_u32 days_since_genesis) {
+    if (p == NULL || p->genesis_bonus_initial <= 0) {
+        return 0;
+    }
+    if (p->genesis_dilution_days == 0u) {
+        return p->genesis_bonus_initial;  /* permanent, no dilution */
+    }
+    if (days_since_genesis >= p->genesis_dilution_days) {
+        return 0;  /* fully diluted */
+    }
+    /* Linear interpolation from genesis_bonus_initial at day 0 to 0 at
+     * genesis_dilution_days. Done in fixed point to stay deterministic. */
+    al_u32 remaining = p->genesis_dilution_days - days_since_genesis;
+    return al_fixed_mul(p->genesis_bonus_initial,
+                        al_fixed_div(al_fixed_from_int((al_i64)remaining),
+                                     al_fixed_from_int((al_i64)p->genesis_dilution_days)));
+}
+
 al_fixed al_potb_decay_multiplier(const al_potb_params *p, al_u32 idle_days) {
     if (p == NULL) {
         return AL_FIXED_ONE;
@@ -239,6 +276,17 @@ al_fixed al_potb_tbs(const al_potb_params *p, const al_potb_record *r,
     al_fixed score     = al_fixed_ln1p(effective);
 
     score = al_fixed_add(score, al_potb_loyalty_bonus(p, r->uptime_days));
+
+    /* Genesis bonus (B2): additive term that linearly dilutes over time.
+     * Only applies when genesis_bonus_initial > 0 (set during genesis init). */
+    if (p->genesis_bonus_initial > 0) {
+        al_u32 days_since = (now_day > r->first_seen_day)
+                            ? (now_day - r->first_seen_day) : 0u;
+        al_fixed diluted = al_potb_genesis_bonus_dilute(p, days_since);
+        if (diluted > 0) {
+            score = al_fixed_add(score, diluted);
+        }
+    }
 
     /* Decay for time spent idle. now_day before last_active_day means the caller
      * passed an inconsistent day index; treat it as no idle time rather than
@@ -543,13 +591,63 @@ void al_potb_weight_compute(const al_potb_params *p, const al_potb_record *r,
     al_fixed w = al_fixed_mul(out->tbs_capped, out->tgw_capped);
     w = al_fixed_mul(w, out->ndm);
     w = al_fixed_mul(w, out->cod);
-    out->total = al_fixed_max(w, 0);
+    out->raw_total = al_fixed_max(w, 0);
+
+    /* Default: effective = raw (no group normalization applied).
+     * Callers that use al_potb_weight_effective() will compute the normalized
+     * value separately. */
+    out->total = out->raw_total;
+    out->group_total_weight = 0;
+    out->effective_total = out->raw_total;
+}
+
+al_fixed al_potb_weight_effective(
+    const al_potb_params *p, al_fixed raw_weight,
+    al_fixed group_total_weight, al_fixed total_network_weight) {
+    if (p == NULL || raw_weight <= 0 || total_network_weight <= 0) {
+        return raw_weight;
+    }
+    if (p->max_group_weight_share <= 0) {
+        return raw_weight;  /* group limit disabled */
+    }
+    if (group_total_weight <= 0) {
+        return raw_weight;  /* node not in any detected group */
+    }
+
+    /* group_share = group_total_weight / total_network_weight.
+     * Scale factor = min(1, max_group_weight_share / group_share). */
+    al_fixed group_share = al_fixed_div(group_total_weight, total_network_weight);
+    if (group_share <= p->max_group_weight_share) {
+        return raw_weight;  /* group is within the limit */
+    }
+    al_fixed factor = al_fixed_div(p->max_group_weight_share, group_share);
+    return al_fixed_mul(raw_weight, factor);
 }
 
 al_fixed al_potb_weight_total(const al_potb_params *p, const al_potb_record *r,
                              const al_potb_network_stats *net, al_u32 now_day) {
     al_potb_weight w;
     al_potb_weight_compute(p, r, net, now_day, &w);
+    return w.total;
+}
+
+/* Effective total weight after applying the group share limit (Q16).
+ * Computes raw weight, then scales down if the node's correlation group
+ * exceeds max_group_weight_share of total_network_weight. */
+al_fixed al_potb_weight_effective_total(const al_potb_params *p,
+                                        const al_potb_record *r,
+                                        const al_potb_network_stats *net,
+                                        al_u32 now_day,
+                                        al_fixed group_total_weight,
+                                        al_fixed total_network_weight) {
+    al_potb_weight w;
+    al_potb_weight_compute(p, r, net, now_day, &w);
+    if (group_total_weight > 0 && total_network_weight > 0 &&
+        p->max_group_weight_share > 0) {
+        return al_potb_weight_effective(p, w.raw_total,
+                                        group_total_weight,
+                                        total_network_weight);
+    }
     return w.total;
 }
 

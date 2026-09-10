@@ -207,7 +207,8 @@ try {
     Check "same genesis binding" ($gA -eq $gB)
 
     Stop-Process -Id $pB.Id -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
+    Wait-Process -Id $pB.Id -Timeout 10 -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 1000
     $finalityLog = Join-Path $DirB "finality.log"
     $finalitySize = (Get-Item $finalityLog).Length
     $stream = [System.IO.File]::Open($finalityLog,
@@ -216,6 +217,10 @@ try {
     [void]$stream.Seek(0, [System.IO.SeekOrigin]::End)
     $stream.Write([byte[]](0x41, 0x4c, 0x46, 0x43, 0x01), 0, 5)
     $stream.Dispose()
+    $corruptedSize = (Get-Item $finalityLog).Length
+    if ($corruptedSize -ne ($finalitySize + 5)) {
+        Write-Host "  WARN corruption may not have landed: expected $($finalitySize + 5), got $corruptedSize" -ForegroundColor DarkYellow
+    }
     $pB = Start-Node $DirB $NodeBArgs "b-restart"
     $restarted = Wait-For {
         $probe = Rpc $RpcB '{"jsonrpc":"2.0","id":6,"method":"get_info"}'

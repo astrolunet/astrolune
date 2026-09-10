@@ -61,6 +61,7 @@ al_status daemon_produce_block(al_daemon *daemon) {
         al_block_header_hash(&produced_header, &block_hash);
         status = daemon_round_checkpoint_restore(daemon);
         if (status != AL_OK) {
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             return status;
         }
@@ -68,6 +69,7 @@ al_status daemon_produce_block(al_daemon *daemon) {
                                       produced_header.height,
                                       daemon->consensus_round);
         if (status != AL_OK) {
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             return status;
         }
@@ -83,12 +85,17 @@ al_status daemon_produce_block(al_daemon *daemon) {
         consensus_proposal.proposer = daemon->proposer.pk;
         al_hash256 signing_hash;
         al_consensus_proposal_hash(&consensus_proposal, &signing_hash);
-        if (!daemon->signing_journal_ready) return AL_ERR_STATE_CORRUPT;
+        if (!daemon->signing_journal_ready) {
+            daemon->fatal_error = AL_TRUE;
+            daemon->stop_requested = AL_TRUE;
+            return AL_ERR_STATE_CORRUPT;
+        }
         status = al_signing_journal_record(
             &daemon->signing_journal, AL_SIGNING_PROPOSAL,
             consensus_proposal.height, consensus_proposal.round,
             &signing_hash);
         if (status != AL_OK) {
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             return status;
         }
@@ -120,6 +127,7 @@ al_status daemon_produce_block(al_daemon *daemon) {
                                               &daemon->state, encoded);
         if (status != AL_OK) {
             DAEMON_LOG(daemon, "storage commit failed; stopping for recovery");
+            daemon->fatal_error = AL_TRUE;
             daemon->stop_requested = AL_TRUE;
             return status;
         }

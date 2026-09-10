@@ -86,6 +86,19 @@ typedef struct al_p2p_peer {
     al_u64 connected_ms;
     al_u64 last_recv_ms;
     al_u64 last_ping_ms;
+
+    /* Rate limiting: token bucket per message type.
+     * Tokens refill at a constant rate per second; each message costs one token.
+     * When the bucket is empty, incoming messages of that type are dropped. */
+    al_u32 rate_tx_tokens;       /* remaining transaction message tokens */
+    al_u32 rate_tx_max;          /* bucket capacity */
+    al_u64 rate_tx_refill_ms;    /* last refill timestamp */
+    al_u32 rate_block_tokens;    /* remaining block message tokens */
+    al_u32 rate_block_max;       /* bucket capacity */
+    al_u64 rate_block_refill_ms; /* last refill timestamp */
+    al_u32 rate_consensus_tokens;  /* remaining consensus message tokens */
+    al_u32 rate_consensus_max;     /* bucket capacity */
+    al_u64 rate_consensus_refill_ms;
 } al_p2p_peer;
 
 typedef struct al_p2p_handlers {

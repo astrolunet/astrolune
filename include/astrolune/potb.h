@@ -139,12 +139,19 @@ typedef struct al_potb_params {
 
     /* --- Anti-domination (A1) --------------------------------------------- */
 
-    /* Maximum允许的 Gini coefficient across eligible node weights. Exceeding
+    /* Maximum allowed Gini coefficient across eligible node weights. Exceeding
      * this triggers an alert and temporarily lowers CAP_TBS/CAP_TGW for
      * nodes above the 99th percentile. */
     al_fixed gini_max;
-    /* Maximum允许的 Herfindahl-Hirschman Index across top-20 nodes. */
+    /* Maximum allowed Herfindahl-Hirschman Index across top-20 nodes. */
     al_fixed hhi_max;
+
+    /* --- Group weight limit (Q16 / A5) ------------------------------------ */
+    /* Maximum share of total network weight that any single correlated group
+     * may hold. Nodes in an over-weight group have their effective weight
+     * scaled down: effective = raw * min(1, max_share / group_share).
+     * Default 0.03 (3%). Set to 0 to disable group normalization. */
+    al_fixed max_group_weight_share;
 
     /* --- Committee size randomization (B3) -------------------------------- */
 
@@ -152,6 +159,15 @@ typedef struct al_potb_params {
      * from knowing the exact majority threshold in advance. */
     al_u32 committee_size_min;
     al_u32 committee_size_max;
+
+    /* --- Genesis dilution (B2) -------------------------------------------- */
+
+    /* Initial bonus weight for genesis nodes, as a Q32.32 additive term
+     * applied to TBS. Linearly diluted to zero over genesis_dilution_days. */
+    al_fixed genesis_bonus_initial;
+    /* Number of days over which the genesis bonus is diluted linearly.
+     * Default 720 (24 months). Set to 0 to disable dilution (bonus is permanent). */
+    al_u32 genesis_dilution_days;
 } al_potb_params;
 
 /* The parameters from the specification. */
@@ -263,6 +279,13 @@ typedef struct al_potb_record {
     /* Voluntary operational bond. Affects only the bonded reward share, never
      * weight. */
     al_amount operational_bond;
+
+    /* --- Genesis bonus (B2) ----------------------------------------------- */
+
+    /* Remaining genesis bonus weight, diluted linearly from
+     * genesis_bonus_initial to 0 over genesis_dilution_days. 0 for non-genesis
+     * nodes. Updated at each scoring epoch. */
+    al_fixed genesis_bonus;
 } al_potb_record;
 
 /* Zeroed record with the multiplier fields set to 1, which is the correct
@@ -307,11 +330,14 @@ AL_PUBLIC al_fixed al_potb_miss_rate(const al_potb_record *r);
  *
  *   TBS = ln(1 + uptime_days * correctness_rate) + loyalty_bonus(uptime_days)
  *
- * The logarithm is the anti-Sybil term: splitting one long-lived node into ten
- * fresh ones loses most of the score, because ln is concave. The additive
- * loyalty term exists because the logarithm alone made year three nearly
- * indistinguishable from year one, which told honest long-term operators that
- * continuing to run was worth nothing.
+ * The logarithm rewards long-lived honest behaviour but does NOT by itself
+ * prevent Sybil splitting — the sum of logarithms exceeds the logarithm of
+ * the sum, so splitting a node into n identical parts actually increases the
+ * raw TBS. The real anti-Sybil defences are the minimum admission thresholds
+ * (min_tbs_candidate), the TGW graph-weight term, the correlation detection
+ * (COD), and the group share limit (Q16). The logarithm's role is to make
+ * each split identity start from zero and grow slowly, not to make splitting
+ * unprofitable on its own.
  *
  * Decay past the grace period and the accumulated penalty multiplier are both
  * applied here, so the returned value is the TBS the weight formula uses.
@@ -321,6 +347,11 @@ AL_PUBLIC al_fixed al_potb_tbs(const al_potb_params *p, const al_potb_record *r,
 
 /* The loyalty term alone, exposed for tests and diagnostics. */
 AL_PUBLIC al_fixed al_potb_loyalty_bonus(const al_potb_params *p, al_u32 uptime_days);
+
+/* Linear dilution of the genesis bonus: returns genesis_bonus_initial scaled
+ * linearly from 1.0 at day 0 to 0.0 at genesis_dilution_days. Pass 0 for
+ * genesis_dilution_days to get a permanent bonus (no dilution). */
+AL_PUBLIC al_fixed al_potb_genesis_bonus_dilute(const al_potb_params *p, al_u32 days_since_genesis);
 
 /* The decay multiplier for a given idle span: 1 inside the grace period, then
  * 0.5^((idle - grace) / half_life). */
@@ -397,6 +428,11 @@ typedef struct al_potb_weight {
     al_fixed tbs_capped;
     al_fixed tgw_capped;
     al_fixed total;
+    /* Group weight limit fields (Q16). raw_total is the weight before group
+     * normalization; effective_total is after applying the group share cap. */
+    al_fixed raw_total;
+    al_fixed group_total_weight;
+    al_fixed effective_total;
 } al_potb_weight;
 
 /* Weight = min(TBS, CAP_TBS) * min(TGW, CAP_TGW) * NDM * COD, with the
@@ -408,6 +444,34 @@ AL_PUBLIC void al_potb_weight_compute(const al_potb_params *p, const al_potb_rec
 /* Just the total, for callers that do not need the breakdown. */
 AL_PUBLIC al_fixed al_potb_weight_total(const al_potb_params *p, const al_potb_record *r,
                              const al_potb_network_stats *net, al_u32 now_day);
+
+/* Effective total weight after applying the group share limit.
+ * When group_total_weight > 0, scales the raw weight down if the node's
+ * correlation group exceeds max_group_weight_share of total_network_weight.
+ * When group_total_weight == 0, returns the same as al_potb_weight_total. */
+AL_PUBLIC al_fixed al_potb_weight_effective_total(
+    const al_potb_params *p, const al_potb_record *r,
+    const al_potb_network_stats *net, al_u32 now_day,
+    al_fixed group_total_weight, al_fixed total_network_weight);
+
+/*
+ * Effective weight after applying the group share limit (Q16).
+ *
+ * When a correlated group of nodes collectively exceeds max_group_weight_share
+ * of the total network weight, each member's weight is scaled down so the
+ * group's total does not exceed the limit. This enforces the "≤0.5% per node"
+ * invariant that individual caps alone cannot provide.
+ *
+ * `group_total_weight` is the sum of raw (pre-limit) weights for all members
+ * of this node's detected correlation group. Pass 0 for nodes not in any
+ * detected group — they receive no group penalty.
+ *
+ * effective = raw_weight * min(1, max_group_weight_share / group_share)
+ * where group_share = group_total_weight / total_network_weight.
+ */
+AL_PUBLIC al_fixed al_potb_weight_effective(
+    const al_potb_params *p, al_fixed raw_weight,
+    al_fixed group_total_weight, al_fixed total_network_weight);
 
 /* --------------------------------------------------------------------------
  * Node levels

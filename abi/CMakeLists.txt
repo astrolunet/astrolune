@@ -7,7 +7,7 @@
 #   layout    - abi_contract.h is compiled by contract_c.c as C and by
 #               contract_cxx.cpp as C++, so every size, alignment and offset is
 #               asserted against one set of literals from both languages
-#   link      - boundary_symbols.cpp takes the address of all 221 public
+#   link      - boundary_symbols.cpp takes the address of all 251 public
 #               functions, so a header that forgot AL_EXTERN_C_BEGIN becomes an
 #               unresolved external instead of a review finding
 #

@@ -93,8 +93,10 @@ AL_NODISCARD al_status al_daemon_open(const al_daemon_config *config,
 
 void al_daemon_close(al_daemon *daemon);
 
-/* Event loop until stop_flag fires or RPC `stop` is called. AL_TRUE when the
- * loop ended cleanly. */
+/* Event loop until stop_flag fires or RPC `stop` is called.
+ * Returns AL_TRUE on a clean user-initiated shutdown (Ctrl-C / RPC stop).
+ * Returns AL_FALSE when the daemon halted due to a fatal internal error
+ * (storage corruption, checkpoint failure, round overflow, etc.). */
 AL_NODISCARD al_bool al_daemon_run(al_daemon *daemon);
 
 /* Request loop exit from another thread; safe because it only writes a flag. */

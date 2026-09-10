@@ -57,9 +57,13 @@ static void write_potb(al_writer *writer, const al_potb_params *p) {
     al_writer_u64(writer, (al_u64)p->hhi_max);
     al_writer_u32(writer, p->committee_size_min);
     al_writer_u32(writer, p->committee_size_max);
+    /* v3: genesis dilution + group weight limit (A5, B2) */
+    al_writer_u64(writer, (al_u64)p->genesis_bonus_initial);
+    al_writer_u32(writer, p->genesis_dilution_days);
+    al_writer_u64(writer, (al_u64)p->max_group_weight_share);
 }
 
-static void read_potb(al_reader *reader, al_potb_params *p) {
+static void read_potb(al_reader *reader, al_potb_params *p, al_u16 genesis_version) {
     p->loyalty_threshold_days = al_reader_u32(reader);
     p->loyalty_rate_per_day = (al_fixed)al_reader_u64(reader);
     p->cap_loyalty = (al_fixed)al_reader_u64(reader);
@@ -89,11 +93,27 @@ static void read_potb(al_reader *reader, al_potb_params *p) {
         p->hhi_max  = al_fixed_from_ratio(15, 100);
         p->committee_size_min = 90u;
         p->committee_size_max = 110u;
+        /* v3 defaults for pre-v3 genesis */
+        p->genesis_bonus_initial = 0;
+        p->genesis_dilution_days = 720u;
+        p->max_group_weight_share = al_fixed_from_ratio(3, 100);
     } else {
         p->gini_max = (al_fixed)al_reader_u64(reader);
         p->hhi_max = (al_fixed)al_reader_u64(reader);
         p->committee_size_min = al_reader_u32(reader);
         p->committee_size_max = al_reader_u32(reader);
+        /* v3: genesis dilution + group weight limit (A5, B2).
+         * Only present in genesis version >= 3. */
+        if (genesis_version < 3u ||
+            al_reader_remaining(reader) < 8u + 4u + 8u) {
+            p->genesis_bonus_initial = 0;
+            p->genesis_dilution_days = 720u;
+            p->max_group_weight_share = al_fixed_from_ratio(3, 100);
+        } else {
+            p->genesis_bonus_initial = (al_fixed)al_reader_u64(reader);
+            p->genesis_dilution_days = al_reader_u32(reader);
+            p->max_group_weight_share = (al_fixed)al_reader_u64(reader);
+        }
     }
 }
 
@@ -126,7 +146,8 @@ static al_bool resources_nonzero(al_resources value) {
 }
 
 al_status al_genesis_validate(const al_genesis *genesis) {
-    if (genesis == NULL || genesis->version != AL_GENESIS_VERSION ||
+    if (genesis == NULL ||
+        (genesis->version != 2u && genesis->version != AL_GENESIS_VERSION) ||
         genesis->chain_id == 0u || genesis->vm_stack_limit == 0u ||
         genesis->vm_memory_limit == 0u ||
         genesis->vm_call_depth_limit == 0u ||
@@ -194,7 +215,7 @@ al_status al_genesis_decode(al_bytes encoded,
     out->vm_stack_limit = (al_size)stack;
     out->vm_memory_limit = (al_size)memory;
     out->vm_call_depth_limit = (al_size)depth;
-    read_potb(&reader, &out->potb);
+    read_potb(&reader, &out->potb, out->version);
 
     al_u64 allocation_count = al_reader_varint(&reader);
     if (allocation_count > AL_GENESIS_MAX_ALLOCATIONS)
