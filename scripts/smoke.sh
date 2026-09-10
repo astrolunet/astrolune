@@ -35,7 +35,7 @@ NODE_PIDS=()
 
 check() {
     local name="$1" condition="$2" detail="${3:-}"
-    if [ "$condition" = "true" ]; then
+    if eval "$condition" >/dev/null 2>&1; then
         echo "  ok   $name"
     else
         echo "  FAIL $name"

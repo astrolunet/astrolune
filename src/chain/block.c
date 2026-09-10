@@ -57,6 +57,10 @@ static void write_potb(al_writer *writer, const al_potb_params *p) {
     al_writer_u64(writer, (al_u64)p->hhi_max);
     al_writer_u32(writer, p->committee_size_min);
     al_writer_u32(writer, p->committee_size_max);
+    /* v3: genesis dilution + group weight limit (A5, B2) */
+    al_writer_u64(writer, (al_u64)p->genesis_bonus_initial);
+    al_writer_u32(writer, p->genesis_dilution_days);
+    al_writer_u64(writer, (al_u64)p->max_group_weight_share);
 }
 
 static void read_potb(al_reader *reader, al_potb_params *p) {
@@ -89,11 +93,26 @@ static void read_potb(al_reader *reader, al_potb_params *p) {
         p->hhi_max  = al_fixed_from_ratio(15, 100);
         p->committee_size_min = 90u;
         p->committee_size_max = 110u;
+        /* v3 defaults for pre-v3 genesis */
+        p->genesis_bonus_initial = 0;
+        p->genesis_dilution_days = 720u;
+        p->max_group_weight_share = al_fixed_from_ratio(3, 100);
     } else {
         p->gini_max = (al_fixed)al_reader_u64(reader);
         p->hhi_max = (al_fixed)al_reader_u64(reader);
         p->committee_size_min = al_reader_u32(reader);
         p->committee_size_max = al_reader_u32(reader);
+        /* v3: genesis dilution + group weight limit (A5, B2).
+         * If no more data, use defaults for backward compatibility. */
+        if (al_reader_remaining(reader) < 8u + 4u + 8u) {
+            p->genesis_bonus_initial = 0;
+            p->genesis_dilution_days = 720u;
+            p->max_group_weight_share = al_fixed_from_ratio(3, 100);
+        } else {
+            p->genesis_bonus_initial = (al_fixed)al_reader_u64(reader);
+            p->genesis_dilution_days = al_reader_u32(reader);
+            p->max_group_weight_share = (al_fixed)al_reader_u64(reader);
+        }
     }
 }
 

@@ -23,6 +23,33 @@ void peer_release_buffers(al_p2p_peer *peer) {
 void peer_init(al_p2p_peer *peer) {
     al_memzero(peer, sizeof(*peer));
     peer->socket = invalid_socket();
+    /* Initialize rate limiter with full buckets. */
+    peer->rate_tx_tokens = P2P_RATE_TX_MAX;
+    peer->rate_tx_max = P2P_RATE_TX_MAX;
+    peer->rate_block_tokens = P2P_RATE_BLOCK_MAX;
+    peer->rate_block_max = P2P_RATE_BLOCK_MAX;
+    peer->rate_consensus_tokens = P2P_RATE_CONSENSUS_MAX;
+    peer->rate_consensus_max = P2P_RATE_CONSENSUS_MAX;
+}
+
+al_bool rate_limit_check(al_u32 *tokens, al_u32 max_tokens,
+                         al_u64 *last_refill_ms, al_u64 now_ms) {
+    if (max_tokens == 0u) {
+        return AL_TRUE;   /* rate limiting disabled */
+    }
+    al_u64 elapsed = (now_ms > *last_refill_ms) ? (now_ms - *last_refill_ms) : 0u;
+    if (elapsed >= P2P_RATE_REFILL_MS) {
+        /* Refill: add tokens proportional to elapsed time, capped at max. */
+        al_u64 refill = elapsed / P2P_RATE_REFILL_MS;
+        al_u64 new_tokens = (al_u64)*tokens + refill;
+        *tokens = (new_tokens > (al_u64)max_tokens) ? max_tokens : (al_u32)new_tokens;
+        *last_refill_ms = now_ms;
+    }
+    if (*tokens == 0u) {
+        return AL_FALSE;  /* rate limited */
+    }
+    --(*tokens);
+    return AL_TRUE;
 }
 
 void peer_close(al_p2p *network, al_size index) {

@@ -358,7 +358,7 @@ AL_ABI_OFFSET(al_vdf_output, iterations, 32);
  * failure names the first field that moved.
  * -------------------------------------------------------------------------- */
 
-AL_ABI_SIZE(al_potb_params, 168);
+AL_ABI_SIZE(al_potb_params, 192);
 AL_ABI_ALIGN(al_potb_params, 8);
 AL_ABI_OFFSET(al_potb_params, loyalty_threshold_days,     0);
 AL_ABI_OFFSET(al_potb_params, loyalty_rate_per_day,       8);
@@ -386,8 +386,11 @@ AL_ABI_OFFSET(al_potb_params, gini_max,                 144);
 AL_ABI_OFFSET(al_potb_params, hhi_max,                  152);
 AL_ABI_OFFSET(al_potb_params, committee_size_min,       160);
 AL_ABI_OFFSET(al_potb_params, committee_size_max,       164);
+AL_ABI_OFFSET(al_potb_params, max_group_weight_share,   168);
+AL_ABI_OFFSET(al_potb_params, genesis_bonus_initial,    176);
+AL_ABI_OFFSET(al_potb_params, genesis_dilution_days,    184);
 
-AL_ABI_SIZE(al_potb_record, 192);
+AL_ABI_SIZE(al_potb_record, 200);
 AL_ABI_ALIGN(al_potb_record, 8);
 AL_ABI_OFFSET(al_potb_record, identity,               0);
 AL_ABI_OFFSET(al_potb_record, uptime_days,           32);
@@ -417,6 +420,7 @@ AL_ABI_OFFSET(al_potb_record, prev_uptime_days,          164);
 AL_ABI_OFFSET(al_potb_record, profile_snapshot_day,      168);
 AL_ABI_OFFSET(al_potb_record, behavioral_entropy,        176);
 AL_ABI_OFFSET(al_potb_record, operational_bond,          184);
+AL_ABI_OFFSET(al_potb_record, genesis_bonus,             192);
 
 AL_ABI_SIZE(al_potb_network_stats, 32);
 AL_ABI_ALIGN(al_potb_network_stats, 8);
@@ -425,15 +429,18 @@ AL_ABI_OFFSET(al_potb_network_stats, median_miss_rate,   8);
 AL_ABI_OFFSET(al_potb_network_stats, median_error_rate, 16);
 AL_ABI_OFFSET(al_potb_network_stats, total_weight,      24);
 
-AL_ABI_SIZE(al_potb_weight, 56);
+AL_ABI_SIZE(al_potb_weight, 80);
 AL_ABI_ALIGN(al_potb_weight, 8);
-AL_ABI_OFFSET(al_potb_weight, tbs,         0);
-AL_ABI_OFFSET(al_potb_weight, tgw,         8);
-AL_ABI_OFFSET(al_potb_weight, ndm,        16);
-AL_ABI_OFFSET(al_potb_weight, cod,        24);
-AL_ABI_OFFSET(al_potb_weight, tbs_capped, 32);
-AL_ABI_OFFSET(al_potb_weight, tgw_capped, 40);
-AL_ABI_OFFSET(al_potb_weight, total,      48);
+AL_ABI_OFFSET(al_potb_weight, tbs,                0);
+AL_ABI_OFFSET(al_potb_weight, tgw,                8);
+AL_ABI_OFFSET(al_potb_weight, ndm,               16);
+AL_ABI_OFFSET(al_potb_weight, cod,               24);
+AL_ABI_OFFSET(al_potb_weight, tbs_capped,        32);
+AL_ABI_OFFSET(al_potb_weight, tgw_capped,        40);
+AL_ABI_OFFSET(al_potb_weight, total,             48);
+AL_ABI_OFFSET(al_potb_weight, raw_total,         56);
+AL_ABI_OFFSET(al_potb_weight, group_total_weight, 64);
+AL_ABI_OFFSET(al_potb_weight, effective_total,    72);
 
 /* 20528 bytes. The two AL_POTB_MAX_COMMITTEE arrays account for 512*32 + 512*8
  * = 20480 of it; the rest is size, formed_at, seed and four bytes of padding

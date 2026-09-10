@@ -26,6 +26,12 @@
 #define P2P_VARINT_MAX           10u
 #define AL_VARINT_MAX            10
 
+/* Rate limiting: token bucket capacities (messages per second). */
+#define P2P_RATE_TX_MAX        20u   /* 20 transactions/second per peer */
+#define P2P_RATE_BLOCK_MAX      5u   /* 5 blocks/second per peer */
+#define P2P_RATE_CONSENSUS_MAX 50u   /* 50 consensus messages/second per peer */
+#define P2P_RATE_REFILL_MS   1000u   /* refill interval: 1 second */
+
 /* p2p.c — peer management and send primitives */
 al_socket invalid_socket(void);
 al_bool    same_socket(al_socket a, al_socket b);
@@ -40,6 +46,11 @@ al_status  peer_send_frame(al_p2p_peer *peer, al_wire_type type,
                            const void *payload, al_size payload_len);
 al_status  peer_send_get_blocks(al_p2p_peer *peer, al_height start,
                                 al_u32 max_count);
+
+/* Token bucket rate limiter. Returns AL_TRUE if the message is allowed,
+ * AL_FALSE if it should be dropped. Refills tokens based on elapsed time. */
+al_bool rate_limit_check(al_u32 *tokens, al_u32 max_tokens,
+                         al_u64 *last_refill_ms, al_u64 now_ms);
 
 /* p2p_handlers.c — inbound message handling */
 void handle_transaction(al_p2p *network, al_p2p_peer *origin,

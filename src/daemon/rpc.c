@@ -556,8 +556,9 @@ al_status daemon_rpc_handler(void *userdata,
                  ++t) {
                 const al_transaction *tx = &block.transactions[t];
                 al_bool match = AL_FALSE;
-                if (memcmp(tx->sender.bytes, address.bytes,
-                           AL_PUBKEY_SIZE) == 0) {
+                al_address sender_address;
+                al_address_from_pubkey(&tx->sender, &sender_address);
+                if (al_address_eq(&sender_address, &address)) {
                     match = AL_TRUE;
                 }
                 if (!match && (tx->type == AL_TX_TRANSFER ||
