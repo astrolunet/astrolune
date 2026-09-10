@@ -14,7 +14,7 @@
  * A pointer to a function whose signature is deliberately forgotten.
  *
  * The table exists to make the linker resolve every public symbol, and for that
- * only the address matters. Keeping 221 distinct signatures would mean writing
+ * only the address matters. Keeping 251 distinct signatures would mean writing
  * every prototype out a second time, which is transcription with its own
  * opportunities to be wrong. Reinterpreting a function pointer as another
  * function pointer type is well defined; calling through the result would not

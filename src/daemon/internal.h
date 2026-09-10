@@ -101,6 +101,7 @@ struct al_daemon {
     al_u64  next_block_ms;
     al_u64  next_bootstrap_ms;
     al_bool stop_requested;
+    al_bool fatal_error;
 };
 
 /* daemon.c — small helpers */

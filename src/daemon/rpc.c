@@ -435,6 +435,166 @@ al_status daemon_rpc_handler(void *userdata,
         return AL_OK;
     }
 
+    if (strcmp(method, "list_blocks") == 0) {
+        const al_json_value *params = rpc_params(request);
+        al_u64 block_count = al_node_storage_block_count(&daemon->storage);
+        if (block_count == 0u) {
+            al_json_writer_raw(body, "[]");
+            return AL_OK;
+        }
+        al_i64 offset = (al_i64)block_count - 1;
+        const al_json_value *ov = al_json_get(params, "offset");
+        if (ov && ov->kind == AL_JSON_U64) {
+            offset = (al_i64)ov->u64_value;
+        }
+        al_u64 count = 10u;
+        const al_json_value *cv = al_json_get(params, "count");
+        if (cv && cv->kind == AL_JSON_U64) {
+            count = cv->u64_value;
+            if (count > 100u) count = 100u;
+        }
+        if (offset < 0) offset = 0;
+        if ((al_u64)offset >= block_count) offset = (al_i64)block_count - 1;
+
+        al_json_writer_raw(body, "[");
+        al_bool first = AL_TRUE;
+        for (al_u64 i = 0u; i < count; ++i) {
+            al_i64 h = offset - (al_i64)i;
+            if (h < 0) break;
+            al_size encoded_cap = 0u;
+            al_status rs = al_node_storage_read_block(
+                &daemon->storage, (al_height)h, (al_bytes_mut){NULL, 0},
+                &encoded_cap);
+            if (rs != AL_ERR_BUFFER_TOO_SMALL) continue;
+            al_u8 *encoded = (al_u8 *)malloc(encoded_cap);
+            if (encoded == NULL) continue;
+            rs = al_node_storage_read_block(
+                &daemon->storage, (al_height)h,
+                (al_bytes_mut){ encoded, encoded_cap }, &encoded_cap);
+            if (rs != AL_OK) { free(encoded); continue; }
+            al_block block = {0};
+            rs = al_block_decode(al_bytes_make(encoded, encoded_cap),
+                                 daemon->block_transactions,
+                                 AL_BLOCK_MAX_TRANSACTIONS, &block);
+            free(encoded);
+            if (rs != AL_OK) continue;
+
+            al_hash256 block_hash;
+            al_block_header_hash(&block.header, &block_hash);
+            char hash_buf[AL_HASH_HEX_SIZE];
+            al_hash_to_hex(&block_hash, hash_buf);
+            char parent_buf[AL_HASH_HEX_SIZE];
+            al_hash_to_hex(&block.header.parent_hash, parent_buf);
+
+            if (!first) al_json_writer_raw(body, ",");
+            first = AL_FALSE;
+            al_json_writer_raw(body, "{\"hash\":");
+            write_hash_string(body, hash_buf);
+            al_json_writer_raw(body, ",\"height\":");
+            al_json_writer_u64(body, block.header.height);
+            al_json_writer_raw(body, ",\"parent\":");
+            write_hash_string(body, parent_buf);
+            al_json_writer_raw(body, ",\"proposer\":");
+            al_json_writer_hex(body,
+                               al_bytes_make(block.header.proposer.bytes,
+                                             AL_PUBKEY_SIZE));
+            al_json_writer_raw(body, ",\"transaction_count\":");
+            al_json_writer_u64(body, block.transaction_count);
+            al_json_writer_raw(body, ",\"transactions\":[");
+            for (al_size t = 0u; t < block.transaction_count; ++t) {
+                al_hash256 tx_hash;
+                al_tx_hash(&block.transactions[t], &tx_hash);
+                char tx_buf[AL_HASH_HEX_SIZE];
+                al_hash_to_hex(&tx_hash, tx_buf);
+                if (t != 0u) al_json_writer_raw(body, ",");
+                write_hash_string(body, tx_buf);
+            }
+            al_json_writer_raw(body, "]}");
+        }
+        al_json_writer_raw(body, "]");
+        return AL_OK;
+    }
+
+    if (strcmp(method, "get_account_txs") == 0) {
+        const al_json_value *params = rpc_params(request);
+        al_address address;
+        al_status ast = json_parse_address(params, "address", &address);
+        if (ast != AL_OK) {
+            return al_rpc_respond_error(body, -32602, "invalid address");
+        }
+        al_u64 limit = 40u;
+        const al_json_value *lv = al_json_get(params, "limit");
+        if (lv && lv->kind == AL_JSON_U64) {
+            limit = lv->u64_value;
+            if (limit > 200u) limit = 200u;
+        }
+        al_u64 block_count = al_node_storage_block_count(&daemon->storage);
+        al_json_writer_raw(body, "[");
+        al_bool first = AL_TRUE;
+        al_u64 found = 0u;
+        for (al_i64 h = (al_i64)block_count - 1;
+             h >= 0 && found < limit; --h) {
+            al_size encoded_cap = 0u;
+            al_status rs = al_node_storage_read_block(
+                &daemon->storage, (al_height)h, (al_bytes_mut){NULL, 0},
+                &encoded_cap);
+            if (rs != AL_ERR_BUFFER_TOO_SMALL) continue;
+            al_u8 *encoded = (al_u8 *)malloc(encoded_cap);
+            if (encoded == NULL) continue;
+            rs = al_node_storage_read_block(
+                &daemon->storage, (al_height)h,
+                (al_bytes_mut){ encoded, encoded_cap }, &encoded_cap);
+            if (rs != AL_OK) { free(encoded); continue; }
+            al_block block = {0};
+            rs = al_block_decode(al_bytes_make(encoded, encoded_cap),
+                                 daemon->block_transactions,
+                                 AL_BLOCK_MAX_TRANSACTIONS, &block);
+            free(encoded);
+            if (rs != AL_OK) continue;
+
+            for (al_size t = 0u; t < block.transaction_count && found < limit;
+                 ++t) {
+                const al_transaction *tx = &block.transactions[t];
+                al_bool match = AL_FALSE;
+                if (memcmp(tx->sender.bytes, address.bytes,
+                           AL_PUBKEY_SIZE) == 0) {
+                    match = AL_TRUE;
+                }
+                if (!match && (tx->type == AL_TX_TRANSFER ||
+                               tx->type == AL_TX_CALL)) {
+                    if (memcmp(tx->body.transfer.recipient.bytes,
+                               address.bytes, AL_PUBKEY_SIZE) == 0) {
+                        match = AL_TRUE;
+                    }
+                }
+                if (!match) continue;
+
+                al_hash256 tx_hash;
+                al_tx_hash(tx, &tx_hash);
+                char tx_buf[AL_HASH_HEX_SIZE];
+                al_hash_to_hex(&tx_hash, tx_buf);
+                if (!first) al_json_writer_raw(body, ",");
+                first = AL_FALSE;
+                al_json_writer_raw(body, "{\"hash\":");
+                write_hash_string(body, tx_buf);
+                al_json_writer_raw(body, ",\"height\":");
+                al_json_writer_u64(body, block.header.height);
+                al_json_writer_raw(body, ",\"index\":");
+                al_json_writer_u64(body, t);
+                al_json_writer_raw(body, ",\"type\":");
+                al_json_writer_u64(body, (al_u64)tx->type);
+                al_json_writer_raw(body, ",\"nonce\":");
+                al_json_writer_u64(body, tx->nonce);
+                al_json_writer_raw(body, ",\"tip\":");
+                al_json_writer_u64(body, tx->tip);
+                al_json_writer_raw(body, "}");
+                found++;
+            }
+        }
+        al_json_writer_raw(body, "]");
+        return AL_OK;
+    }
+
     if (strcmp(method, "get_block") == 0) {
         const al_json_value *params = rpc_params(request);
         al_i64 height = -1;

@@ -129,11 +129,16 @@ static al_bool check_bearer_token(const al_rpc_server *server,
     }
 
     al_size provided_len = (al_size)(token_end - token_start);
-    if (provided_len != server->auth_token_len) return AL_FALSE;
 
-    /* Constant-time comparison to avoid timing side-channels. */
+    /* Constant-time comparison to avoid timing side-channels.
+     * We fold the length mismatch into the diff accumulator so that a
+     * different-length token does not short-circuit before the byte loop. */
     al_u8 diff = 0u;
-    for (al_size i = 0u; i < server->auth_token_len; i++) {
+    diff |= (al_u8)(provided_len ^ server->auth_token_len);
+    al_size len = provided_len < server->auth_token_len
+                     ? provided_len
+                     : server->auth_token_len;
+    for (al_size i = 0u; i < len; i++) {
         diff |= (al_u8)((al_u8)token_start[i] ^ server->auth_token[i]);
     }
     return (diff == 0u) ? AL_TRUE : AL_FALSE;

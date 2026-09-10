@@ -48,6 +48,12 @@ jobs:
       - name: Four-validator quorum smoke (Windows)
         if: runner.os == 'Windows'
         run: powershell -ExecutionPolicy Bypass -File scripts/consensus-smoke.ps1 -Preset ci
+      - name: Two-node network smoke (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/smoke.sh ci
+      - name: Four-validator quorum smoke (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/consensus-smoke.sh ci
 
   sanitizers:
     strategy:
