@@ -280,7 +280,6 @@ try {
         Check "counter starts at zero" ($getZero -match '"data":"0x0000000000000000"')
 
         # inc(5) submitted to A; executed in a block; visible via B.
-        # inc(5) submitted to A; executed in a block; visible via B.
         $incNonce = & $getNonce $RpcA $addrA
         & $Alnode make-tx call $contract 1 -a 5 -o (Join-Path $Smoke "inc.txhex") --seed $SeedA --nonce $incNonce --chain-id 1337 | Out-Null
         $incHex = Get-Content (Join-Path $Smoke "inc.txhex")

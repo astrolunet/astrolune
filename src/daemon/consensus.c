@@ -22,18 +22,6 @@ al_proposed_block *daemon_proposed_find(al_daemon *daemon,
     return NULL;
 }
 
-/* Find any slot for a given height (any round). */
-static al_proposed_block *daemon_proposed_find_height(al_daemon *daemon,
-                                                      al_height height) {
-    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
-        al_proposed_block *slot = &daemon->proposed_window[i];
-        if (slot->in_use && slot->height == height) {
-            return slot;
-        }
-    }
-    return NULL;
-}
-
 /* Allocate a new slot in the ring buffer. Evicts the oldest slot if full. */
 static al_proposed_block *daemon_proposed_alloc(al_daemon *daemon) {
     /* First pass: find an empty slot. */

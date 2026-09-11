@@ -108,8 +108,13 @@ al_bool daemon_on_proposal(al_daemon *daemon, al_bytes encoded) {
         return AL_FALSE;
     }
 
-    /* Reject proposals for already-finalized heights (B7). */
-    if (wire.consensus.height <= daemon->finalized_height) {
+    /* Reject proposals for already-finalized heights (B7).
+     * Use strict less-than: finalized_height=0 at startup means "no height
+     * has been explicitly finalized by consensus yet" — height-0 proposals
+     * are still valid.  After the first finalization next_height advances
+     * past 0, so the height != next_height check above already covers it. */
+    if (wire.consensus.height > 0 &&
+        wire.consensus.height <= daemon->finalized_height) {
         return AL_FALSE;
     }
 
