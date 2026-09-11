@@ -7,6 +7,11 @@
  * activation delay.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/validator_set.h"
 
 #include "internal/common.h"
@@ -14,9 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* --------------------------------------------------------------------------
- * Storage keys
- * -------------------------------------------------------------------------- */
+/* Storage keys */
 
 al_size al_validator_storage_key(const al_pubkey *pk, char *buf, al_size cap) {
     char pk_hex[AL_PUBKEY_SIZE * 2u + 1u];
@@ -37,9 +40,7 @@ al_size al_validator_registration_height_key(const al_pubkey *pk, char *buf,
     return (al_size)snprintf(buf, cap, "registration_height:%s", pk_hex);
 }
 
-/* --------------------------------------------------------------------------
- * Record encoding/decoding
- * -------------------------------------------------------------------------- */
+/* Record encoding/decoding */
 
 /* Encoded format (all little-endian):
  *   [0:32]   identity (pubkey)
@@ -127,9 +128,7 @@ static al_status decode_record(al_bytes encoded, al_potb_record *r) {
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Public API
- * -------------------------------------------------------------------------- */
+/* Public API */
 
 al_status al_validator_set_load(const al_state_txn *txn,
                                 const al_potb_params *p,

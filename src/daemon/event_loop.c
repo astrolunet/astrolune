@@ -1,5 +1,10 @@
 /* Event loop and consensus wire handlers (proposal/vote/finality/evidence). */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
 void daemon_dial_bootstraps(al_daemon *daemon) {
@@ -99,8 +104,12 @@ al_bool daemon_on_proposal(al_daemon *daemon, al_bytes encoded) {
         al_consensus_proposal_verify(&wire.consensus,
                                      &daemon->committee) != AL_OK ||
         wire.consensus.height != al_node_next_height(&daemon->node) ||
-        wire.consensus.round != daemon->consensus_round ||
         wire.block.len < AL_BLOCK_HEADER_ENCODED_SIZE) {
+        return AL_FALSE;
+    }
+
+    /* Reject proposals for already-finalized heights (B7). */
+    if (wire.consensus.height <= daemon->finalized_height) {
         return AL_FALSE;
     }
 
@@ -126,10 +135,17 @@ al_bool daemon_on_proposal(al_daemon *daemon, al_bytes encoded) {
         !al_hash_eq(&expected_parent, &header.parent_hash)) {
         return AL_FALSE;
     }
-    if (daemon->pending_proposal) {
-        if (al_hash_eq(&daemon->pending_block_hash, &block_hash)) {
-            return AL_TRUE;
-        }
+
+    /* If we already have this exact proposal, accept it silently. */
+    if (daemon_proposed_find(daemon, wire.consensus.height,
+                             wire.consensus.round) != NULL) {
+        return AL_TRUE;
+    }
+
+    /* If we have a proposal for the same height but different round,
+     * check if the new proposer is the rightful leader for that round. */
+    if (daemon->pending_proposal &&
+        daemon->pending_height == wire.consensus.height) {
         const al_pubkey *expected = al_consensus_proposer(
             &daemon->committee, wire.consensus.height, wire.consensus.round);
         if (expected == NULL ||
@@ -246,9 +262,11 @@ al_bool daemon_on_finality(void *userdata, al_bytes encoded) {
     if (certificate.height != next_height) return AL_FALSE;
 
     if (daemon->pending_proposal) {
-        if (!al_bytes_eq(al_bytes_make(daemon->pending_block,
-                                       daemon->pending_block_size),
-                         finalized.block)) {
+        /* Check if the active pending block matches. */
+        al_proposed_block *slot = daemon_proposed_find(
+            daemon, daemon->pending_height, daemon->consensus_round);
+        if (slot == NULL || !al_bytes_eq(al_bytes_make(slot->data, slot->size),
+                                         finalized.block)) {
             return AL_FALSE;
         }
     } else {

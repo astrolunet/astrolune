@@ -9,6 +9,11 @@
  * consensus ABI and may evolve before the first network protocol is frozen.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_NODE_NODE_H
 #define ASTROLUNE_NODE_NODE_H
 

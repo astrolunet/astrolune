@@ -1,5 +1,10 @@
 /* Daemon lifecycle: open, close, scratch cleanup. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
 void daemon_free_scratch(al_daemon *daemon) {
@@ -10,7 +15,14 @@ void daemon_free_scratch(al_daemon *daemon) {
     free(daemon->block_transactions);
     free(daemon->receipts);
     free(daemon->block_scratch);
-    free(daemon->pending_block);
+    /* Clean up the proposed-block window (B7). */
+    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
+        al_proposed_block *slot = &daemon->proposed_window[i];
+        free(slot->data);
+        slot->data = NULL;
+        slot->size = 0u;
+        slot->in_use = AL_FALSE;
+    }
     daemon->mempool_entries = NULL;
     daemon->mempool_bytes = NULL;
     daemon->round_mempool_entries = NULL;
@@ -18,7 +30,6 @@ void daemon_free_scratch(al_daemon *daemon) {
     daemon->block_transactions = NULL;
     daemon->receipts = NULL;
     daemon->block_scratch = NULL;
-    daemon->pending_block = NULL;
 }
 
 al_status al_daemon_open(const al_daemon_config *config,

@@ -1,14 +1,17 @@
 /* TOML config file loader. See config.h for the public API. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* ------------------------------------------------------------------ */
-/* File reading                                                        */
-/* ------------------------------------------------------------------ */
+/* File reading */
 
 static al_status read_config_file(const char *path, char **out, al_size *out_len) {
     FILE *f = fopen(path, "rb");
@@ -27,9 +30,7 @@ static al_status read_config_file(const char *path, char **out, al_size *out_len
     return AL_OK;
 }
 
-/* ------------------------------------------------------------------ */
-/* TOML helpers                                                         */
-/* ------------------------------------------------------------------ */
+/* TOML helpers */
 
 /* Set a config string field only if the TOML key exists and the field
  * is currently NULL (i.e. not already set by CLI). */
@@ -67,9 +68,7 @@ static void config_set_u32(const al_toml_value *tbl, const char *key,
         *field = (al_u32)val;
 }
 
-/* ------------------------------------------------------------------ */
-/* Public API                                                           */
-/* ------------------------------------------------------------------ */
+/* Public API */
 
 al_status al_daemon_config_load_memory(const char *text, al_size len,
                                         al_daemon_config *config) {
@@ -191,9 +190,7 @@ al_status al_daemon_config_load(const char *path, al_daemon_config *config) {
     return s;
 }
 
-/* ------------------------------------------------------------------ */
-/* Validation                                                           */
-/* ------------------------------------------------------------------ */
+/* Validation */
 
 static al_bool log_level_valid(const char *level) {
     if (level == NULL) return AL_TRUE; /* NULL = use default */

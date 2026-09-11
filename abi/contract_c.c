@@ -17,4 +17,9 @@
  * the header is one, so this is well formed with no linker symbol at all.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "abi_contract.h"

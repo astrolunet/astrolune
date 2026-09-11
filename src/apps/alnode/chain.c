@@ -3,6 +3,11 @@
  *           init-node, import-blocks, node-head.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "alnode.h"
 
 #include <errno.h>

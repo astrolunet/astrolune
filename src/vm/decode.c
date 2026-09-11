@@ -6,15 +6,18 @@
  * mutation beyond the caller-supplied scratch arena in vm_validate_program.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/vm.h"
 #include "internal.h"
 #include "internal/common.h"
 
 #include <stdio.h>
 
-/* --------------------------------------------------------------------------
- * Instruction decode
- * -------------------------------------------------------------------------- */
+/* Instruction decode */
 
 al_bool al_vm_decode(al_bytes code, al_size position, al_vm_insn *out) {
     if (out == NULL || position >= code.len) {
@@ -46,9 +49,7 @@ al_bool al_vm_decode(al_bytes code, al_size position, al_vm_insn *out) {
     return AL_TRUE;
 }
 
-/* --------------------------------------------------------------------------
- * Opcode classification
- * -------------------------------------------------------------------------- */
+/* Opcode classification */
 
 al_bool al_vm_opcode_valid(al_vm_opcode op) {
     return (op >= AL_VM_STOP && op <= AL_VM_HOST) ||
@@ -60,9 +61,7 @@ al_bool al_vm_terminal(al_vm_opcode op) {
             op == AL_VM_RET) ? AL_TRUE : AL_FALSE;
 }
 
-/* --------------------------------------------------------------------------
- * Host function shapes
- * -------------------------------------------------------------------------- */
+/* Host function shapes */
 
 al_status al_vm_host_shape(al_vm_host_id id, al_size *arguments,
                            al_size *results) {
@@ -97,9 +96,7 @@ al_status al_vm_host_shape(al_vm_host_id id, al_size *arguments,
     return AL_ERR_UNSUPPORTED;
 }
 
-/* --------------------------------------------------------------------------
- * Stack-effect analysis
- * -------------------------------------------------------------------------- */
+/* Stack-effect analysis */
 
 al_status al_vm_stack_effect(const al_vm_program *program,
                              const al_vm_insn *insn,
@@ -174,9 +171,7 @@ al_status al_vm_stack_effect(const al_vm_program *program,
     return AL_ERR_INVALID_OPCODE;
 }
 
-/* --------------------------------------------------------------------------
- * Program validation (static analysis)
- * -------------------------------------------------------------------------- */
+/* Program validation (static analysis) */
 
 static al_status vm_queue_successor(al_u64 *heights, al_u32 *queue,
                                     al_size *tail, al_size successor,

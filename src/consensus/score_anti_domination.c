@@ -2,11 +2,14 @@
  * Anti-domination metrics (A1), behavioral entropy (A3), profile change (B2).
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "score_internal.h"
 
-/* --------------------------------------------------------------------------
- * Anti-domination metrics (A1)
- * -------------------------------------------------------------------------- */
+/* Anti-domination metrics (A1) */
 
 al_fixed al_potb_gini(const al_fixed *weights, al_size count) {
     if (weights == NULL || count == 0u) {
@@ -118,9 +121,7 @@ void al_potb_independence_check(
     out->alert_triggered = (out->gini > p->gini_max || out->hhi > p->hhi_max);
 }
 
-/* --------------------------------------------------------------------------
- * Behavioral entropy (A3)
- * -------------------------------------------------------------------------- */
+/* Behavioral entropy (A3) */
 
 al_fixed al_potb_entropy_from_hist(const al_u32 *hist, al_u32 slots) {
     if (slots == 0u) {
@@ -175,9 +176,7 @@ al_fixed al_potb_entropy_value(const al_potb_record *r) {
     return r->behavioral_entropy;
 }
 
-/* --------------------------------------------------------------------------
- * Profile change detection (B2)
- * -------------------------------------------------------------------------- */
+/* Profile change detection (B2) */
 
 al_fixed al_potb_profile_change_score(const al_potb_record *r) {
     if (r == NULL || r->profile_snapshot_day == 0u) {

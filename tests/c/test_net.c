@@ -6,12 +6,15 @@
  * sync run through the actual event loop rather than a mock.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "p2p.h"
 
-/* ------------------------------------------------------------------ */
-/* Wire codec                                                          */
-/* ------------------------------------------------------------------ */
+/* Wire codec */
 
 AL_TEST(wire_header_roundtrip) {
     al_u8 buffer[AL_WIRE_HEADER_SIZE];
@@ -184,9 +187,7 @@ AL_TEST(wire_finalized_block_roundtrip) {
                        AL_ERR_OUT_OF_RANGE);
 }
 
-/* ------------------------------------------------------------------ */
-/* P2P over loopback                                                    */
-/* ------------------------------------------------------------------ */
+/* P2P over loopback */
 
 #define PUMP_LIMIT 600u
 

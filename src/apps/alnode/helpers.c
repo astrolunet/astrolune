@@ -2,6 +2,11 @@
  * alnode_helpers.c — shared utility functions for the alnode CLI.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "alnode.h"
 #include "random.h"
 
@@ -9,9 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ------------------------------------------------------------------ */
-/* Calldata encoding                                                   */
-/* ------------------------------------------------------------------ */
+/* Calldata encoding */
 
 void store_le64_local(al_u8 *p, uint64_t v) {
     for (unsigned i = 0; i < 8; ++i) {
@@ -19,9 +22,7 @@ void store_le64_local(al_u8 *p, uint64_t v) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Reporting                                                           */
-/* ------------------------------------------------------------------ */
+/* Reporting */
 
 int report_status(const char *operation, al_status status) {
     (void)fprintf(stderr, "alnode: %s: %s\n", operation,
@@ -38,9 +39,7 @@ void warn_insecure_crypto(void) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Parsing helpers                                                     */
-/* ------------------------------------------------------------------ */
+/* Parsing helpers */
 
 al_status parse_chain_id(const char *text, al_u32 *out) {
     if (text == NULL || out == NULL || text[0] == '\0') {
@@ -84,9 +83,7 @@ al_status parse_address_text(const char *text, al_address *out) {
     return al_hex_decode(buffer, out->bytes, sizeof(out->bytes), NULL);
 }
 
-/* ------------------------------------------------------------------ */
-/* Key management                                                      */
-/* ------------------------------------------------------------------ */
+/* Key management */
 
 int command_keygen(const char *seed_text) {
     al_keypair keypair;
@@ -137,9 +134,7 @@ int command_keygen(const char *seed_text) {
     return 0;
 }
 
-/* ------------------------------------------------------------------ */
-/* File I/O                                                            */
-/* ------------------------------------------------------------------ */
+/* File I/O */
 
 al_status write_file(const char *path, al_bytes bytes) {
     FILE *file = fopen(path, "wb");
@@ -185,9 +180,7 @@ al_status read_file(const char *path, al_u8 **data_out, al_size *size_out) {
     return AL_OK;
 }
 
-/* ------------------------------------------------------------------ */
-/* Runtime lifecycle                                                   */
-/* ------------------------------------------------------------------ */
+/* Runtime lifecycle */
 
 static al_status runtime_open_memory(alnode_runtime *runtime,
                                      al_amount deposit_per_byte) {

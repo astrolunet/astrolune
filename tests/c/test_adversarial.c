@@ -3,6 +3,11 @@
  * codec roundtrip, non-committee submissions, and slashing.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "finality.h"
 #include "astrolune/evidence.h"
@@ -54,9 +59,7 @@ static al_consensus_vote make_vote(adv_fixture *f, al_u32 voter,
     return vote;
 }
 
-/* --------------------------------------------------------------------------
- * Double-sign evidence: create + verify
- * -------------------------------------------------------------------------- */
+/* Double-sign evidence: create + verify */
 
 AL_TEST(double_sign_prevote_evidence) {
     adv_fixture f;
@@ -82,9 +85,7 @@ AL_TEST(double_sign_precommit_evidence) {
     AL_CHECK_EQ_STATUS(al_evidence_verify(&ev, &f.committee), AL_OK);
 }
 
-/* --------------------------------------------------------------------------
- * Evidence creation rejects adversarial inputs
- * -------------------------------------------------------------------------- */
+/* Evidence creation rejects adversarial inputs */
 
 AL_TEST(evidence_create_rejects_different_voters) {
     adv_fixture f;
@@ -160,9 +161,7 @@ AL_TEST(evidence_create_rejects_different_chain_id) {
                        AL_ERR_CONSENSUS_VIOLATION);
 }
 
-/* --------------------------------------------------------------------------
- * Evidence verify rejects non-committee members
- * -------------------------------------------------------------------------- */
+/* Evidence verify rejects non-committee members */
 
 AL_TEST(evidence_verify_rejects_non_committee_member) {
     adv_fixture f;
@@ -179,9 +178,7 @@ AL_TEST(evidence_verify_rejects_non_committee_member) {
                        AL_ERR_CONSENSUS_VIOLATION);
 }
 
-/* --------------------------------------------------------------------------
- * Evidence codec roundtrip
- * -------------------------------------------------------------------------- */
+/* Evidence codec roundtrip */
 
 AL_TEST(evidence_codec_roundtrip) {
     adv_fixture f;
@@ -211,9 +208,7 @@ AL_TEST(evidence_codec_roundtrip) {
                        AL_ERR_BAD_SIGNATURE);
 }
 
-/* --------------------------------------------------------------------------
- * Vote set adversarial scenarios
- * -------------------------------------------------------------------------- */
+/* Vote set adversarial scenarios */
 
 AL_TEST(vote_set_rejects_duplicate_voter) {
     adv_fixture f;
@@ -273,9 +268,7 @@ AL_TEST(vote_set_quorum_requires_threshold) {
     AL_CHECK(al_vote_set_has_quorum(&set, &f.committee));
 }
 
-/* --------------------------------------------------------------------------
- * Evidence processing: slashing
- * -------------------------------------------------------------------------- */
+/* Evidence processing: slashing */
 
 AL_TEST(evidence_process_applies_temporary_ban) {
     adv_fixture f;
@@ -351,9 +344,7 @@ AL_TEST(evidence_process_rejects_wrong_identity) {
                        AL_ERR_CONSENSUS_VIOLATION);
 }
 
-/* --------------------------------------------------------------------------
- * Evidence encoding edge cases
- * -------------------------------------------------------------------------- */
+/* Evidence encoding edge cases */
 
 AL_TEST(evidence_encode_rejects_null_input) {
     al_size written = 0u;
@@ -380,9 +371,7 @@ AL_TEST(evidence_decode_rejects_truncated) {
                        AL_ERR_TRUNCATED);
 }
 
-/* --------------------------------------------------------------------------
- * Finality certificate: tamper detection
- * -------------------------------------------------------------------------- */
+/* Finality certificate: tamper detection */
 
 AL_TEST(finality_cert_rejects_duplicate_voter) {
     adv_fixture f;

@@ -5,6 +5,11 @@
  * which pulls in network/state libraries that crash at startup in tests.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "astrolune/toml.h"
 #include <string.h>
@@ -12,9 +17,7 @@
 
 #define AL_TEST_SUITE_NAME "config"
 
-/* ------------------------------------------------------------------ */
-/* Minimal config struct (subset of al_daemon_config used for testing)  */
-/* ------------------------------------------------------------------ */
+/* Minimal config struct (subset of al_daemon_config used for testing) */
 
 #define CFG_MAX_BOOTSTRAP 16u
 #define CFG_MAX_VALIDATORS 16u
@@ -45,9 +48,7 @@ typedef struct test_config {
     al_size owned_string_count;
 } test_config;
 
-/* ------------------------------------------------------------------ */
-/* Config helpers (copied from daemon/config.c for test isolation)      */
-/* ------------------------------------------------------------------ */
+/* Config helpers (copied from daemon/config.c for test isolation) */
 
 static char *cfg_copy_string(test_config *config, const char *value) {
     al_size len = strlen(value);
@@ -183,9 +184,7 @@ static al_status test_config_validate(const test_config *config) {
     return AL_OK;
 }
 
-/* ------------------------------------------------------------------ */
-/* Tests                                                                */
-/* ------------------------------------------------------------------ */
+/* Tests */
 
 AL_TEST(config_parse_minimal) {
     const char *toml =
@@ -346,9 +345,7 @@ AL_TEST(config_empty_toml) {
     AL_CHECK_EQ_STATUS(test_config_validate(&config), AL_ERR_INVALID_ARG);
 }
 
-/* ------------------------------------------------------------------ */
-/* Runner                                                               */
-/* ------------------------------------------------------------------ */
+/* Runner */
 
 AL_TEST_MAIN {
     AL_RUN(config_parse_minimal);

@@ -2,6 +2,11 @@
  * Signer interface tests.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/signer.h"
 #include "astrolune/crypto.h"
 

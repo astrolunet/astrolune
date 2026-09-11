@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_DAEMON_SIGNING_JOURNAL_H
 #define ASTROLUNE_DAEMON_SIGNING_JOURNAL_H
 

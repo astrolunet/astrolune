@@ -1,5 +1,10 @@
 /* Signed PoTB proposal, vote and finality-certificate primitives. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_CONSENSUS_FINALITY_H
 #define ASTROLUNE_CONSENSUS_FINALITY_H
 

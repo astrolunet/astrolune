@@ -11,6 +11,11 @@
  * store it, relay it, answer range requests with it.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_DAEMON_DAEMON_H
 #define ASTROLUNE_DAEMON_DAEMON_H
 

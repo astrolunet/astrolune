@@ -41,6 +41,11 @@
  * to the compiler and only surfaces as an unresolved symbol at link time).
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_ABI_CONTRACT_H
 #define ASTROLUNE_ABI_CONTRACT_H
 
@@ -151,15 +156,14 @@ AL_ABI_VALUE(AL_FIXED_FRAC_BITS, 32);
 AL_ABI_VALUE(AL_FIXED_ONE,  INT64_C(4294967296));
 AL_ABI_VALUE(AL_FIXED_HALF, INT64_C(2147483648));
 
-/* --------------------------------------------------------------------------
+/*
  * 3. al_bool is not C++'s bool (boundary rule 1.7)
- *
  * The rule exists because `bool` is a distinct type in C++ with an
  * implementation-defined size, and because a bool holds only 0 or 1 - so a
  * struct field round-tripped through one would quietly normalise every nonzero
  * byte to 1. The check below is the language-neutral way to tell the two apart:
  * converting 2 to a one-byte integer keeps 2, converting it to a bool yields 1.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_bool, 1);
 AL_ABI_ALIGN(al_bool, 1);
@@ -168,21 +172,19 @@ AL_STATIC_ASSERT(AL_CAST(al_bool, 2) == 2,
 AL_ABI_VALUE(AL_TRUE,  1);
 AL_ABI_VALUE(AL_FALSE, 0);
 
-/* --------------------------------------------------------------------------
+/*
  * 4. Enum widths and values (boundary rules 1.5, 1.6)
- *
  * MSVC has no `enum : type` despite reporting C23, so each public enum pins its
  * own width with an explicit …_SENTINEL = 0x7fffffff. Without that, an enum
  * whose largest enumerator fits in a byte may be given a byte, and the two
  * languages need not choose the same underlying type.
- *
  * The values matter too, not just the widths: an al_status crosses the ABI as a
  * number, and an al_potb_level or al_potb_offence is a consensus-visible code.
  * Renumbering one is not a refactor. Only the enumerators whose values are
  * written explicitly in the header, plus the two encoding codes named as
  * consensus rules in CLAUDE.md, are pinned here - the rest follow by succession
  * and pinning them would be transcription, not verification.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_status, 4);
 AL_ABI_ALIGN(al_status, 4);
@@ -216,9 +218,8 @@ AL_ABI_ALIGN(al_potb_offence, 4);
 AL_ABI_VALUE(AL_POTB_OFFENCE_VOTE_MISS, 0);
 AL_ABI_VALUE(AL_POTB_OFFENCE_SENTINEL, 0x7fffffff);
 
-/* --------------------------------------------------------------------------
+/*
  * 5. The byte-array wrappers (boundary rule 1.9)
- *
  * Each of these is a struct around an array, not a bare array, so an address
  * cannot be passed where a public key is expected. Two properties are load
  * bearing. The size must equal the corresponding AL_*_SIZE, and the alignment
@@ -226,16 +227,14 @@ AL_ABI_VALUE(AL_POTB_OFFENCE_SENTINEL, 0x7fffffff);
  * padding, which is what makes hashing sizeof(al_hash256) bytes the same as
  * hashing 32 content bytes. Padding here would feed uninitialised memory into
  * a hash and make the digest depend on the allocator.
- *
  * base.h already asserts the al_hash256 and al_address sizes at the point of
  * declaration. The duplication is intentional: those two fire even for a C-only
  * consumer, and these fire in both languages side by side.
- *
  * The sizes are stated against the AL_*_SIZE constants rather than against bare
  * literals, because the relation "the struct is exactly its declared constant"
  * is the invariant worth holding. Section 6 pins the constants themselves, so
  * the two together still nail the numbers down.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_hash256, AL_HASH_SIZE);        AL_ABI_ALIGN(al_hash256, 1);
 AL_ABI_SIZE(al_address, AL_ADDRESS_SIZE);     AL_ABI_ALIGN(al_address, 1);
@@ -244,13 +243,12 @@ AL_ABI_SIZE(al_seckey,  AL_SECKEY_SIZE);      AL_ABI_ALIGN(al_seckey,  1);
 AL_ABI_SIZE(al_sig,     AL_SIGNATURE_SIZE);   AL_ABI_ALIGN(al_sig,     1);
 AL_ABI_SIZE(al_vrf_proof, AL_VRF_PROOF_SIZE); AL_ABI_ALIGN(al_vrf_proof, 1);
 
-/* --------------------------------------------------------------------------
+/*
  * 6. Public constants
- *
  * These reach the tooling as literals, so they are ABI in the same sense a
  * struct offset is: a C archive compiled against one value and a C++ tool
  * compiled against another disagree with no diagnostic anywhere.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_VALUE(AL_HASH_SIZE, 32);
 AL_ABI_VALUE(AL_ADDRESS_SIZE, 32);
@@ -271,9 +269,7 @@ AL_ABI_VALUE(AL_UNITS_PER_COIN, UINT64_C(1000000000));
  * enough that test_potb declares it static. */
 AL_ABI_VALUE(AL_POTB_MAX_COMMITTEE, 512);
 
-/* --------------------------------------------------------------------------
- * 7. Layout: bytes.h
- * -------------------------------------------------------------------------- */
+/* 7. Layout: bytes.h */
 
 AL_ABI_SIZE(al_bytes, 16);
 AL_ABI_ALIGN(al_bytes, 8);
@@ -299,9 +295,7 @@ AL_ABI_OFFSET(al_writer, cap,    8);
 AL_ABI_OFFSET(al_writer, pos,   16);
 AL_ABI_OFFSET(al_writer, status, 24);
 
-/* --------------------------------------------------------------------------
- * 8. Layout: arena.h
- * -------------------------------------------------------------------------- */
+/* 8. Layout: arena.h */
 
 AL_ABI_SIZE(al_arena, 40);
 AL_ABI_ALIGN(al_arena, 8);
@@ -316,13 +310,12 @@ AL_ABI_ALIGN(al_arena_mark, 8);
 AL_ABI_OFFSET(al_arena_mark, block,  0);
 AL_ABI_OFFSET(al_arena_mark, offset, 8);
 
-/* --------------------------------------------------------------------------
+/*
  * 9. Layout: hash.h
- *
  * These are the only public structs a caller is expected to allocate on the
  * stack and hand to a C function repeatedly across calls, so their size is
  * part of the calling contract rather than an implementation detail.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_sha256_ctx, 112);
 AL_ABI_ALIGN(al_sha256_ctx, 8);
@@ -336,9 +329,7 @@ AL_ABI_ALIGN(al_hmac_ctx, 8);
 AL_ABI_OFFSET(al_hmac_ctx, inner,   0);
 AL_ABI_OFFSET(al_hmac_ctx, outer, 112);
 
-/* --------------------------------------------------------------------------
- * 10. Layout: crypto.h
- * -------------------------------------------------------------------------- */
+/* 10. Layout: crypto.h */
 
 AL_ABI_SIZE(al_keypair, 96);
 AL_ABI_ALIGN(al_keypair, 1);
@@ -350,13 +341,12 @@ AL_ABI_ALIGN(al_vdf_output, 8);
 AL_ABI_OFFSET(al_vdf_output, value,       0);
 AL_ABI_OFFSET(al_vdf_output, iterations, 32);
 
-/* --------------------------------------------------------------------------
+/*
  * 11. Layout: potb.h
- *
  * The largest public surface. Offsets are listed in declaration order, so a
  * field inserted rather than appended shifts every line below it and the
  * failure names the first field that moved.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_potb_params, 192);
 AL_ABI_ALIGN(al_potb_params, 8);
@@ -463,9 +453,7 @@ AL_ABI_OFFSET(al_potb_reward_split, weighted,  8);
 AL_ABI_OFFSET(al_potb_reward_split, bonded,   16);
 AL_ABI_OFFSET(al_potb_reward_split, total,    24);
 
-/* --------------------------------------------------------------------------
- * 12. Layout: block.h
- * -------------------------------------------------------------------------- */
+/* 12. Layout: block.h */
 
 AL_ABI_SIZE(al_genesis_allocation, 40);
 AL_ABI_ALIGN(al_genesis_allocation, 8);
@@ -509,9 +497,7 @@ AL_ABI_OFFSET(al_block, header,              0);
 AL_ABI_OFFSET(al_block, transactions,      344);
 AL_ABI_OFFSET(al_block, transaction_count, 352);
 
-/* --------------------------------------------------------------------------
- * 13. Layout: state.h
- * -------------------------------------------------------------------------- */
+/* 13. Layout: state.h */
 
 AL_ABI_SIZE(al_account, 128);
 AL_ABI_ALIGN(al_account, 8);
@@ -565,12 +551,11 @@ AL_ABI_OFFSET(al_smt_proof, sibling_count,   104);
 AL_ABI_OFFSET(al_smt_proof, sibling_capacity,112);
 AL_ABI_OFFSET(al_smt_proof, exists,          120);
 
-/* --------------------------------------------------------------------------
+/*
  * 14. Layout and codes: tx.h
- *
  * The type tag goes on the wire, so its values are as consensus-visible
  * as an opcode. Renumbering one reinterprets every encoded transaction.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_tx_type, 4);
 AL_ABI_ALIGN(al_tx_type, 4);
@@ -641,16 +626,15 @@ AL_ABI_OFFSET(al_tx_context, vm,           152);
 AL_ABI_OFFSET(al_tx_context, arena,        216);
 AL_ABI_OFFSET(al_tx_context, potb_params,  224);
 
-/* --------------------------------------------------------------------------
+/*
  * 15. Layout and opcodes: vm.h
- *
  * The opcode numbers are the most consensus-visible constants in the tree.
  * They are the bytecode. Renumbering one silently changes the meaning of every
  * contract already deployed, and no signature, hash or state root would notice
  * - the code bytes are unchanged, only their interpretation. Pinned exhaustively
  * for that reason, unlike the enums where only the explicitly-assigned members
  * are checked.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_ABI_SIZE(al_vm_opcode, 4);
 AL_ABI_ALIGN(al_vm_opcode, 4);

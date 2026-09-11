@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "state_fixture.h"
 
 static void fill_bytes(al_u8 *out, al_size len, al_u8 first) {

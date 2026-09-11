@@ -1,5 +1,10 @@
 /* Local node policy and the canonical block-ingress pipeline. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "node.h"
 
 #include "internal/common.h"

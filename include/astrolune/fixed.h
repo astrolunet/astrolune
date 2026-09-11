@@ -22,6 +22,11 @@
  * and precision than node scores require.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_FIXED_H
 #define ASTROLUNE_FIXED_H
 
@@ -37,9 +42,7 @@ typedef al_i64 al_fixed;
 #define AL_FIXED_MAX       INT64_MAX
 #define AL_FIXED_MIN       INT64_MIN
 
-/* --------------------------------------------------------------------------
- * Construction and conversion
- * -------------------------------------------------------------------------- */
+/* Construction and conversion */
 
 AL_PUBLIC al_fixed al_fixed_from_int(al_i64 v);
 
@@ -51,13 +54,12 @@ AL_PUBLIC al_i64 al_fixed_to_int_trunc(al_fixed v);   /* toward zero        */
 AL_PUBLIC al_i64 al_fixed_to_int_round(al_fixed v);   /* nearest, ties away */
 AL_PUBLIC al_i64 al_fixed_floor_int(al_fixed v);      /* toward -inf        */
 
-/* --------------------------------------------------------------------------
+/*
  * Arithmetic
- *
  * Saturating rather than wrapping. A score that overflows should pin at the
  * maximum, not wrap to a negative weight and hand an attacker a way to turn a
  * large honest score into a small one.
- * -------------------------------------------------------------------------- */
+ */
 
 AL_PUBLIC al_fixed al_fixed_add(al_fixed a, al_fixed b);
 AL_PUBLIC al_fixed al_fixed_sub(al_fixed a, al_fixed b);
@@ -69,13 +71,12 @@ AL_PUBLIC al_fixed al_fixed_max(al_fixed a, al_fixed b);
 AL_PUBLIC al_fixed al_fixed_clamp(al_fixed v, al_fixed lo, al_fixed hi);
 AL_PUBLIC al_fixed al_fixed_abs(al_fixed v);
 
-/* --------------------------------------------------------------------------
+/*
  * Transcendental functions
- *
  * Integer implementations, accurate to within a few units in the last place of
  * the Q32.32 representation and - crucially - identical everywhere. Accuracy
  * is verified against reference values in tests/c/test_fixed.c.
- * -------------------------------------------------------------------------- */
+ */
 
 /* Base-2 logarithm. v <= 0 returns AL_FIXED_MIN as a saturated sentinel.
  * Implemented as an integer log2 of the leading bit plus a fractional
@@ -105,9 +106,7 @@ AL_PUBLIC al_fixed al_fixed_sqrt(al_fixed v);
  */
 AL_PUBLIC al_fixed al_fixed_half_pow(al_i64 n, al_i64 d);
 
-/* --------------------------------------------------------------------------
- * Formatting
- * -------------------------------------------------------------------------- */
+/* Formatting */
 
 /* Decimal representation with `decimals` fractional digits (max 9).
  * For logs and diagnostics; never used in a consensus-visible encoding. */

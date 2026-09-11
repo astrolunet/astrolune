@@ -9,20 +9,24 @@
  * while shift-and-compare does not.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/fixed.h"
 
 #include "internal/common.h"
 
 #include <stdio.h>
 
-/* --------------------------------------------------------------------------
+/*
  * 128-bit intermediates
- *
  * Q32.32 multiplication needs a 128-bit product before shifting back down, and
  * division needs a 128-bit dividend. GCC and Clang have __int128; MSVC does not,
  * so a portable limb-based implementation is provided. Both paths are exercised
  * by tests/c/test_fixed.c.
- * -------------------------------------------------------------------------- */
+ */
 
 #if defined(__SIZEOF_INT128__)
 
@@ -92,9 +96,7 @@ static al_u64 al_umul_q32(al_u64 a, al_u64 b) {
     return (lo >> 32) | (hi << 32);
 }
 
-/* --------------------------------------------------------------------------
- * Construction and conversion
- * -------------------------------------------------------------------------- */
+/* Construction and conversion */
 
 /* Magnitude of an i64 as a u64, correct for INT64_MIN. */
 static al_u64 al_abs_u64(al_i64 v) {
@@ -179,9 +181,7 @@ al_i64 al_fixed_floor_int(al_fixed v) {
     return v >> AL_FIXED_FRAC_BITS;   /* arithmetic shift: floor by definition */
 }
 
-/* --------------------------------------------------------------------------
- * Arithmetic - saturating
- * -------------------------------------------------------------------------- */
+/* Arithmetic - saturating */
 
 al_fixed al_fixed_add(al_fixed a, al_fixed b) {
     /* Unsigned arithmetic to compute the sum, then detect overflow from the
@@ -256,9 +256,7 @@ al_fixed al_fixed_abs(al_fixed v) {
     return (v < 0) ? -v : v;
 }
 
-/* --------------------------------------------------------------------------
- * Transcendental functions
- * -------------------------------------------------------------------------- */
+/* Transcendental functions */
 
 /* ln(2) in Q32.32. */
 #define AL_LN2_Q32 UINT64_C(0xB17217F8)
@@ -453,9 +451,7 @@ al_fixed al_fixed_half_pow(al_i64 n, al_i64 d) {
     return al_fixed_exp2(exponent);
 }
 
-/* --------------------------------------------------------------------------
- * Formatting
- * -------------------------------------------------------------------------- */
+/* Formatting */
 
 void al_fixed_to_str(al_fixed v, int decimals, char out[AL_FIXED_STR_SIZE]) {
     if (decimals < 0) { decimals = 0; }

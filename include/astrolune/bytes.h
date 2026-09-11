@@ -7,6 +7,11 @@
  * That property is what lets the decoders be simple.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_BYTES_H
 #define ASTROLUNE_BYTES_H
 
@@ -14,9 +19,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * Views
- * -------------------------------------------------------------------------- */
+/* Views */
 
 /* Immutable view over borrowed bytes. Does not own its storage. */
 typedef struct al_bytes {
@@ -50,13 +53,12 @@ AL_PUBLIC AL_NODISCARD al_bool al_bytes_eq_ct(al_bytes a, al_bytes b);
 /* Subrange [offset, offset+len). Returns an empty view if out of range. */
 AL_PUBLIC al_bytes al_bytes_slice(al_bytes b, al_size offset, al_size len);
 
-/* --------------------------------------------------------------------------
+/*
  * Reader
- *
  * A cursor over an al_bytes. Once an error is latched the reader stays in the
  * failed state, so a decoder may perform a run of reads and check the status
  * once at the end instead of after every field.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_reader {
     const al_u8 *data;
@@ -99,13 +101,12 @@ AL_PUBLIC void al_reader_fail(al_reader *r, al_status status);
  * transaction-malleability vector. */
 AL_PUBLIC AL_NODISCARD al_status al_reader_finish(const al_reader *r);
 
-/* --------------------------------------------------------------------------
+/*
  * Writer
- *
  * Writes into a caller-supplied buffer. Overflow latches
  * AL_ERR_BUFFER_TOO_SMALL rather than growing, because the core's hot paths
  * size their buffers up front and must not allocate mid-serialisation.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_writer {
     al_u8    *data;
@@ -133,9 +134,7 @@ AL_PUBLIC AL_NODISCARD al_status al_writer_finish(const al_writer *w);
 /* Bytes a varint will occupy. Lets callers size a buffer exactly. */
 AL_PUBLIC al_size al_varint_size(al_u64 v);
 
-/* --------------------------------------------------------------------------
- * Hex
- * -------------------------------------------------------------------------- */
+/* Hex */
 
 /* Lowercase hex. Needs 2*len+1 bytes in `out`, including the terminator. */
 AL_PUBLIC AL_NODISCARD al_status al_hex_encode(al_bytes in, char *out, al_size out_cap);

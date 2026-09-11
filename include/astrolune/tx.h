@@ -1,5 +1,10 @@
 /* astrolune/tx.h - canonical v1 transactions and receipt-producing execution. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_TX_H
 #define ASTROLUNE_TX_H
 

@@ -25,6 +25,11 @@
  * that a change is visible in a diff rather than settled by a test.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/arena.h"
 #include "astrolune/potb.h"
 
@@ -39,9 +44,7 @@
  * is the identical bit pattern the implementation computes. */
 #define FX(n, d) al_fixed_from_ratio((al_i64)(n), (al_i64)(d))
 
-/* --------------------------------------------------------------------------
- * Fixtures
- * -------------------------------------------------------------------------- */
+/* Fixtures */
 
 /* Distinct, deterministic pubkeys. The byte pattern only has to differ per
  * index; nothing in this module verifies a key against a curve. */
@@ -77,9 +80,7 @@ static al_potb_record al_test_node(al_u32 i, al_u32 uptime_days) {
     return r;
 }
 
-/* --------------------------------------------------------------------------
- * Parameters
- * -------------------------------------------------------------------------- */
+/* Parameters */
 
 AL_TEST(params_default_and_validate) {
     /* Bullet 1. Every default asserted against the value in score.c:20-71, so a
@@ -174,13 +175,13 @@ AL_TEST(params_default_and_validate) {
     /* Equal thresholds are consistent, if unusual. */
     AL_REJECT(q.min_tbs_candidate = al_fixed_from_int(4), AL_OK);
 
-    /* --- Anti-domination (A1) --- */
+    /* Anti-domination (A1) */
     AL_REJECT(q.gini_max = -1, AL_ERR_OUT_OF_RANGE);
     AL_REJECT(q.gini_max = ONE + 1, AL_ERR_OUT_OF_RANGE);
     AL_REJECT(q.hhi_max = -1, AL_ERR_OUT_OF_RANGE);
     AL_REJECT(q.hhi_max = ONE + 1, AL_ERR_OUT_OF_RANGE);
 
-    /* --- Committee size randomization (B3) --- */
+    /* Committee size randomization (B3) */
     AL_REJECT(q.committee_size_min = 0u, AL_ERR_OUT_OF_RANGE);
     AL_REJECT(q.committee_size_min = q.committee_size_max + 1u, AL_ERR_OUT_OF_RANGE);
     AL_REJECT(q.committee_size_max = AL_POTB_MAX_COMMITTEE + 1u, AL_ERR_OUT_OF_RANGE);
@@ -188,9 +189,7 @@ AL_TEST(params_default_and_validate) {
 #undef AL_REJECT
 }
 
-/* --------------------------------------------------------------------------
- * Behaviour rates and the NULL contract
- * -------------------------------------------------------------------------- */
+/* Behaviour rates and the NULL contract */
 
 AL_TEST(rates_and_null_neutrality) {
     al_potb_params p  = al_potb_params_default();
@@ -275,9 +274,7 @@ AL_TEST(rates_and_null_neutrality) {
     AL_CHECK_EQ_I64(al_potb_miss_rate(&r), 0);
 }
 
-/* --------------------------------------------------------------------------
- * TBS
- * -------------------------------------------------------------------------- */
+/* TBS */
 
 AL_TEST(tbs_monotonic_and_decay) {
     /* Bullet 3: TBS monotonic in uptime, decay correct across the grace
@@ -447,9 +444,7 @@ AL_TEST(loyalty_bonus_threshold) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * TGW, NDM, COD
- * -------------------------------------------------------------------------- */
+/* TGW, NDM, COD */
 
 AL_TEST(tgw_components) {
     al_potb_params p = al_potb_params_default();
@@ -669,9 +664,7 @@ AL_TEST(ndm_and_cod) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * Correlation
- * -------------------------------------------------------------------------- */
+/* Correlation */
 
 /* Two records that share none of the four correlation signals. */
 static void al_test_uncorrelated(al_potb_record *a, al_potb_record *b) {
@@ -842,9 +835,7 @@ AL_TEST(correlation_signals) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * Levels
- * -------------------------------------------------------------------------- */
+/* Levels */
 
 AL_TEST(level_boundaries) {
     al_potb_params p = al_potb_params_default();
@@ -945,9 +936,7 @@ AL_TEST(level_boundaries) {
     AL_CHECK_EQ_STR(al_potb_offence_str((al_potb_offence)99), "unknown");
 }
 
-/* --------------------------------------------------------------------------
- * The anti-Sybil property
- * -------------------------------------------------------------------------- */
+/* The anti-Sybil property */
 
 /*
  * Coverage bullet 4 of implementation-status.md 4 asks for a test that splitting
@@ -1130,9 +1119,7 @@ AL_TEST(antisybil_split_loses_eligibility) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * Slashing
- * -------------------------------------------------------------------------- */
+/* Slashing */
 
 AL_TEST(slashing_relativity) {
     al_potb_params p = al_potb_params_default();
@@ -1349,9 +1336,7 @@ AL_TEST(quorum_threshold) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * Committee selection
- * -------------------------------------------------------------------------- */
+/* Committee selection */
 
 /*
  * Committees are ~20.5 KB apiece (512 keys plus 512 weights), so every one of
@@ -1717,9 +1702,7 @@ AL_TEST(committee_sampling) {
     al_arena_destroy(&a);
 }
 
-/* --------------------------------------------------------------------------
- * Committee rotation
- * -------------------------------------------------------------------------- */
+/* Committee rotation */
 
 /* How many of `before`'s members are no longer in `after`. */
 static al_u32 al_test_departed(const al_potb_committee *before,
@@ -2131,9 +2114,7 @@ AL_TEST(committee_rotation) {
     al_arena_destroy(&a);
 }
 
-/* --------------------------------------------------------------------------
- * Epoch seed
- * -------------------------------------------------------------------------- */
+/* Epoch seed */
 
 AL_TEST(epoch_seed_commit_reveal) {
     al_pubkey  alice = al_test_key(1u);
@@ -2379,7 +2360,7 @@ AL_TEST(rewards_split_and_cap) {
 
     const al_amount reward = 1000000u;
 
-    /* --- the documented split, at equal weight and equal bond ------------- */
+    /* the documented split, at equal weight and equal bond */
     /*
      * 60/25/15 of 1000000 is 600000/250000/150000; ten equal members take a tenth
      * of each. flat is exact because the bucket divides evenly by the committee
@@ -2414,7 +2395,7 @@ AL_TEST(rewards_split_and_cap) {
         AL_CHECK(paid > reward - (al_amount)c.size * 3u);   /* nothing large lost */
     }
 
-    /* --- the ceiling trims bonded, then weighted, and never flat ---------- */
+    /* the ceiling trims bonded, then weighted, and never flat */
     /*
      * Member 0 holds 91 of 100 weight units and the entire bond, so it earns
      * 227499 weighted and the full 150000 bonded on top of its 60000 flat -
@@ -2434,7 +2415,7 @@ AL_TEST(rewards_split_and_cap) {
     AL_CHECK_EQ_U64(s.weighted, 120000u);    /* trimmed second, partially */
     AL_CHECK_EQ_U64(s.total, 180000u);       /* exactly 3 x flat */
 
-    /* --- a bond buys reward share and never voting weight ---------------- */
+    /* a bond buys reward share and never voting weight */
     /*
      * Member 1 posts no bond at all. It keeps its full flat share and its full
      * weighted share; the bond's entire effect is the third bucket. This is the
@@ -2481,7 +2462,7 @@ AL_TEST(rewards_split_and_cap) {
 
     c.weights[0] = ONE;
 
-    /* --- zero total weight: the weighted bucket is skipped ---------------- */
+    /* zero total weight: the weighted bucket is skipped */
     {
         static al_potb_committee zc;
         memset(&zc, 0, sizeof(zc));
@@ -2496,7 +2477,7 @@ AL_TEST(rewards_split_and_cap) {
         AL_CHECK_EQ_U64(s.total, 150000u);
     }
 
-    /* --- the null and out-of-range contract ------------------------------- */
+    /* the null and out-of-range contract */
     /* Every rejected form zeroes the output first, so a caller that ignores the
      * absence of a status code still reads zeros rather than stale values. */
     {
@@ -2533,7 +2514,7 @@ AL_TEST(rewards_split_and_cap) {
         AL_CHECK_EQ_U64(s.total, 0u);
     }
 
-    /* --- the top of the range -------------------------------------------- */
+    /* the top of the range */
     /*
      * al_bp_of, al_scale_by_fixed, al_mul_amount_sat and al_ratio_u64 are all
      * static in committee.c, so they are driven through the public entry point
@@ -2624,9 +2605,7 @@ AL_TEST(rewards_split_and_cap) {
     }
 }
 
-/* --------------------------------------------------------------------------
- * A1: Gini and HHI metrics
- * -------------------------------------------------------------------------- */
+/* A1: Gini and HHI metrics */
 
 AL_TEST(gini_hhi_metrics) {
     /* Equal weights: Gini ≈ 0, HHI = 1/n. */
@@ -2650,9 +2629,7 @@ AL_TEST(gini_hhi_metrics) {
     AL_CHECK(hhi < ONE);
 }
 
-/* --------------------------------------------------------------------------
- * B5: Independence check
- * -------------------------------------------------------------------------- */
+/* B5: Independence check */
 
 AL_TEST(independence_check) {
     al_potb_params p = al_potb_params_default();
@@ -2682,9 +2659,7 @@ AL_TEST(independence_check) {
     AL_CHECK(stats.hhi >= 0);
 }
 
-/* --------------------------------------------------------------------------
- * A3: Behavioral entropy
- * -------------------------------------------------------------------------- */
+/* A3: Behavioral entropy */
 
 AL_TEST(behavioral_entropy) {
     al_pubkey pk = al_test_key(50u);
@@ -2703,9 +2678,7 @@ AL_TEST(behavioral_entropy) {
     AL_CHECK(al_potb_entropy_value(&r) >= 0);
 }
 
-/* --------------------------------------------------------------------------
- * B2: Profile change detection
- * -------------------------------------------------------------------------- */
+/* B2: Profile change detection */
 
 AL_TEST(profile_change_detection) {
     al_pubkey pk = al_test_key(60u);
@@ -2730,9 +2703,7 @@ AL_TEST(profile_change_detection) {
     AL_CHECK(score > 0);
 }
 
-/* --------------------------------------------------------------------------
- * B4: Appeal resolution
- * -------------------------------------------------------------------------- */
+/* B4: Appeal resolution */
 
 AL_TEST(appeal_resolve) {
     al_potb_params p = al_potb_params_default();
@@ -2763,9 +2734,7 @@ AL_TEST(appeal_resolve) {
     AL_CHECK_EQ_STATUS(s, AL_ERR_INVALID_ARG);
 }
 
-/* --------------------------------------------------------------------------
- * B1: Challenge miss slashing
- * -------------------------------------------------------------------------- */
+/* B1: Challenge miss slashing */
 
 AL_TEST(challenge_miss_slashing) {
     al_potb_params p = al_potb_params_default();
@@ -2787,6 +2756,117 @@ AL_TEST(challenge_miss_slashing) {
     al_potb_record r2 = al_potb_record_init(&pk);
     s = al_potb_slash(&p, &r2, &net, AL_POTB_OFFENCE_CHALLENGE_MISS, 100u);
     AL_CHECK_EQ_STATUS(s, AL_ERR_NOT_FOUND);
+}
+
+/* B1: Cluster detection */
+
+AL_TEST(cluster_detection_singletons) {
+    /* Nodes with no correlation signals should each be their own singleton. */
+    al_potb_record records[3];
+    for (al_u32 i = 0u; i < 3u; ++i) {
+        al_pubkey pk = al_test_key(200u + i);
+        records[i] = al_potb_record_init(&pk);
+        records[i].uptime_days = 100u + i * 100u;  /* different uptimes */
+        records[i].first_seen_day = i * 200u;       /* far apart registrations */
+        records[i].inbound_attestations = 50u;
+        records[i].asn = (al_u32)(i + 1u);          /* different ASNs */
+        records[i].tdi = ONE;
+    }
+
+    al_potb_detect_clusters(records, 3);
+
+    /* Each should be a singleton. */
+    for (al_u32 i = 0u; i < 3u; ++i) {
+        AL_CHECK_EQ_U64(records[i].cluster_size, 1u);
+        AL_CHECK_EQ_U64(records[i].inbound_from_cluster, 0u);
+        AL_CHECK_EQ_I64(records[i].correlation_score, 0);
+    }
+}
+
+AL_TEST(cluster_detection_group) {
+    /* Three nodes with strong correlation: same ASN, nearby registration,
+     * matching uptime and last_active_day. These should form a cluster. */
+    al_potb_record records[3];
+    for (al_u32 i = 0u; i < 3u; ++i) {
+        al_pubkey pk = al_test_key(300u + i);
+        records[i] = al_potb_record_init(&pk);
+        records[i].uptime_days = 100u;
+        records[i].last_active_day = 500u;
+        records[i].first_seen_day = 10u;   /* all registered on the same day */
+        records[i].inbound_attestations = 50u;
+        records[i].inbound_from_cluster = 0u;
+        records[i].cluster_size = 0u;
+        records[i].asn = 999u;              /* all same ASN */
+        records[i].asn_peer_count = 3u;
+        records[i].tdi = FX(1, 10);         /* low TDI (both in small cluster signal) */
+        records[i].challenges_issued = 10u;
+        records[i].challenges_passed = 10u;
+    }
+
+    al_potb_detect_clusters(records, 3);
+
+    /* All three should be in the same cluster. */
+    for (al_u32 i = 0u; i < 3u; ++i) {
+        AL_CHECK_EQ_U64(records[i].cluster_size, 3u);
+        AL_CHECK(records[i].correlation_score > 0);
+    }
+}
+
+AL_TEST(cluster_detection_mixed) {
+    /* Two correlated nodes + one independent node. */
+    al_potb_record records[3];
+
+    /* Correlated pair: same ASN, nearby registration, matching uptime. */
+    for (al_u32 i = 0u; i < 2u; ++i) {
+        al_pubkey pk = al_test_key(400u + i);
+        records[i] = al_potb_record_init(&pk);
+        records[i].uptime_days = 200u;
+        records[i].last_active_day = 600u;
+        records[i].first_seen_day = 50u;
+        records[i].inbound_attestations = 80u;
+        records[i].inbound_from_cluster = 0u;
+        records[i].cluster_size = 0u;
+        records[i].asn = 500u;
+        records[i].asn_peer_count = 2u;
+        records[i].tdi = ONE;
+        records[i].challenges_issued = 20u;
+        records[i].challenges_passed = 20u;
+    }
+
+    /* Independent node: different ASN, different timing. */
+    al_pubkey pk3 = al_test_key(402u);
+    records[2] = al_potb_record_init(&pk3);
+    records[2].uptime_days = 50u;
+    records[2].last_active_day = 100u;
+    records[2].first_seen_day = 800u;
+    records[2].inbound_attestations = 30u;
+    records[2].inbound_from_cluster = 0u;
+    records[2].cluster_size = 0u;
+    records[2].asn = 700u;
+    records[2].asn_peer_count = 1u;
+    records[2].tdi = ONE;
+
+    al_potb_detect_clusters(records, 3);
+
+    /* The pair should be clustered, the third should be a singleton. */
+    AL_CHECK_EQ_U64(records[0].cluster_size, 2u);
+    AL_CHECK_EQ_U64(records[1].cluster_size, 2u);
+    AL_CHECK_EQ_U64(records[2].cluster_size, 1u);
+    AL_CHECK(records[0].correlation_score > 0);
+    AL_CHECK_EQ_I64(records[2].correlation_score, 0);
+}
+
+AL_TEST(cluster_detection_null_and_single) {
+    /* NULL and single-node edge cases. */
+    al_potb_detect_clusters(NULL, 0);
+    al_potb_detect_clusters(NULL, 5);
+
+    al_pubkey pk = al_test_key(500u);
+    al_potb_record r = al_potb_record_init(&pk);
+    r.uptime_days = 100u;
+    al_potb_detect_clusters(&r, 1u);
+    AL_CHECK_EQ_U64(r.cluster_size, 1u);
+    AL_CHECK_EQ_U64(r.inbound_from_cluster, 0u);
 }
 
 AL_TEST_MAIN {
@@ -2812,4 +2892,8 @@ AL_TEST_MAIN {
     AL_RUN(profile_change_detection);
     AL_RUN(appeal_resolve);
     AL_RUN(challenge_miss_slashing);
+    AL_RUN(cluster_detection_singletons);
+    AL_RUN(cluster_detection_group);
+    AL_RUN(cluster_detection_mixed);
+    AL_RUN(cluster_detection_null_and_single);
 }

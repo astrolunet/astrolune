@@ -8,6 +8,11 @@
  * analysis behind it.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/hash.h"
 
 #include "internal/common.h"
@@ -69,9 +74,7 @@ void al_hmac_sha256(const void *key, al_size key_len,
     al_hmac_final(&ctx, out);
 }
 
-/* --------------------------------------------------------------------------
- * HKDF
- * -------------------------------------------------------------------------- */
+/* HKDF */
 
 void al_hkdf_extract(const void *salt, al_size salt_len,
                      const void *ikm, al_size ikm_len, al_hash256 *prk_out) {

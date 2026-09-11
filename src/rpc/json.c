@@ -1,5 +1,10 @@
 /* Minimal JSON parser and writer. See json.h for the contract. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "json.h"
 #include "internal/common.h"
 
@@ -11,7 +16,7 @@
  * indistinguishable from an attack and is rejected outright. */
 #define JSON_MAX_DEPTH 32u
 
-/* --- Parser ----------------------------------------------------------------- */
+/* Parser */
 
 typedef struct json_parser {
     const char *text;
@@ -381,7 +386,7 @@ const char *al_json_as_string(const al_json_value *value) {
     return value->string;
 }
 
-/* --- Writer ------------------------------------------------------------------- */
+/* Writer */
 
 static void writer_reserve(al_json_writer *writer, al_size extra) {
     if (writer->status != AL_OK) return;

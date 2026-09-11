@@ -5,15 +5,18 @@
  * handles the binary format; the execution loop lives in vm.c.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/vm.h"
 #include "internal.h"
 #include "internal/common.h"
 
 static const al_u8 al_vm_magic[4] = { 'A', 'L', 'V', 'M' };
 
-/* --------------------------------------------------------------------------
- * Encoding
- * -------------------------------------------------------------------------- */
+/* Encoding */
 
 static void vm_function_write(al_writer *writer,
                               const al_vm_function *function) {
@@ -49,9 +52,7 @@ al_status al_vm_container_encode(const al_vm_function *functions,
     return al_writer_finish(&writer);
 }
 
-/* --------------------------------------------------------------------------
- * Decoding
- * -------------------------------------------------------------------------- */
+/* Decoding */
 
 al_status al_vm_program_decode(al_bytes container, al_arena *arena,
                                al_vm_program *out) {
@@ -106,9 +107,7 @@ al_status al_vm_program_decode(al_bytes container, al_arena *arena,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Loading and validation
- * -------------------------------------------------------------------------- */
+/* Loading and validation */
 
 al_status al_vm_program_load(al_bytes container, const al_vm_config *config,
                              al_arena *arena, al_vm_program *out) {

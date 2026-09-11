@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
 #  define _POSIX_C_SOURCE 200809L
 #endif
@@ -1506,9 +1512,7 @@ al_status al_node_storage_prepare_genesis(al_node_storage *storage,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Snapshot export / import
- * -------------------------------------------------------------------------- */
+/* Snapshot export / import */
 
 #define SNAPSHOT_MAGIC       "ALSS"
 #define SNAPSHOT_VERSION     1u
@@ -1738,9 +1742,7 @@ done:
     return status;
 }
 
-/* --------------------------------------------------------------------------
- * Pruning
- * -------------------------------------------------------------------------- */
+/* Pruning */
 
 al_status al_node_storage_prune(al_node_storage *storage,
                                 al_height keep_height) {

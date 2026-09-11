@@ -11,6 +11,11 @@
  * consensus change until proven otherwise.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/hash.h"
 
 #include "altest.h"

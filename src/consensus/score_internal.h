@@ -3,6 +3,11 @@
  * NOT part of the public API.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_SCORE_INTERNAL_H
 #define ASTROLUNE_SCORE_INTERNAL_H
 

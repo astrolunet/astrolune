@@ -5,14 +5,17 @@
  * why each of those is a hard rule rather than a preference.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/potb.h"
 
 #include "internal/common.h"
 #include "score_internal.h"
 
-/* --------------------------------------------------------------------------
- * Parameters
- * -------------------------------------------------------------------------- */
+/* Parameters */
 
 /* Q32.32 helper for a literal fraction. Written as a ratio rather than a decimal
  * so the value in the source is the exact value the code uses. */
@@ -22,7 +25,7 @@ al_potb_params al_potb_params_default(void) {
     al_potb_params p;
     al_memzero(&p, sizeof(p));
 
-    /* --- TBS -------------------------------------------------------------- */
+    /* TBS */
     p.loyalty_threshold_days = 365u;
     /* 0.001 per day: a decade past the threshold accrues ~3.3, comparable to the
      * logarithmic term for a multi-year node, so seniority is visible without
@@ -33,7 +36,7 @@ al_potb_params al_potb_params_default(void) {
     p.grace_period_days    = 60u;
     p.decay_half_life_days = 21u;
 
-    /* --- Caps ------------------------------------------------------------- */
+    /* Caps */
     /* ln(1 + 3650 * 1.0) is about 8.2, so a ten-year flawless node reaches the
      * cap and no further. The cap is what bounds a single identity; the share
      * limit in the specification is enforced above this module, at the point
@@ -41,12 +44,12 @@ al_potb_params al_potb_params_default(void) {
     p.cap_tbs = al_fixed_from_int(10);
     p.cap_tgw = al_fixed_from_int(1);
 
-    /* --- Trust graph ------------------------------------------------------ */
+    /* Trust graph */
     p.sybil_cluster_threshold = AL_FX(8, 10);
     p.sybil_cluster_max_size  = 50u;
     p.tdi_suspicious_below    = AL_FX(2, 10);
 
-    /* --- Committee -------------------------------------------------------- */
+    /* Committee */
     p.committee_size            = 100u;
     p.committee_lifetime_blocks = 10u;
     p.committee_size_min       = 75u;
@@ -61,28 +64,28 @@ al_potb_params al_potb_params_default(void) {
      * committee is still to have behaved correctly for a while. */
     p.candidate_weight_factor = AL_FIXED_HALF;
 
-    /* --- Anti-domination (A1) --- */
+    /* Anti-domination (A1) */
     p.gini_max              = AL_FX(9, 20);  /* 0.45 */
     p.hhi_max              = AL_FX(1, 50);   /* 0.02 */
 
-    /* --- Group weight limit (Q16 / A5) --- */
+    /* Group weight limit (Q16 / A5) */
     /* 3% maximum share of total network weight per correlated group.
      * Starting point subject to calibration on the testbed. */
     p.max_group_weight_share = AL_FX(3, 100);
 
-    /* --- Committee size randomization (B3) --- */
+    /* Committee size randomization (B3) */
 
-    /* --- Genesis dilution (B2) --- */
+    /* Genesis dilution (B2) */
     /* Genesis nodes can receive an additive bonus that linearly decays over
      * genesis_dilution_days. Default 0 (no bonus); set explicitly in genesis
      * init when desired. */
     p.genesis_bonus_initial = 0;
     p.genesis_dilution_days = 720u;
 
-    /* --- Epoch ------------------------------------------------------------ */
+    /* Epoch */
     p.epoch_days = 1u;
 
-    /* --- Rewards ---------------------------------------------------------- */
+    /* Rewards */
     p.reward_flat_bp     = 6000u;
     p.reward_weighted_bp = 2500u;
     p.reward_bonded_bp   = 1500u;
@@ -151,9 +154,7 @@ al_status al_potb_params_validate(const al_potb_params *p) {
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Records
- * -------------------------------------------------------------------------- */
+/* Records */
 
 al_potb_record al_potb_record_init(const al_pubkey *identity) {
     al_potb_record r;
@@ -171,9 +172,7 @@ al_potb_record al_potb_record_init(const al_pubkey *identity) {
     return r;
 }
 
-/* --------------------------------------------------------------------------
- * Behaviour rates
- * -------------------------------------------------------------------------- */
+/* Behaviour rates */
 
 al_fixed al_potb_correctness_rate(const al_potb_record *r) {
     if (r == NULL || r->responses_total == 0u) {
@@ -213,9 +212,7 @@ al_fixed al_potb_error_rate(const al_potb_record *r) {
     return al_fixed_from_ratio((al_i64)wrong, (al_i64)r->responses_total);
 }
 
-/* --------------------------------------------------------------------------
- * TBS
- * -------------------------------------------------------------------------- */
+/* TBS */
 
 al_fixed al_potb_loyalty_bonus(const al_potb_params *p, al_u32 uptime_days) {
     if (p == NULL || uptime_days < p->loyalty_threshold_days) {
@@ -304,9 +301,7 @@ al_fixed al_potb_tbs(const al_potb_params *p, const al_potb_record *r,
     return al_fixed_max(score, 0);
 }
 
-/* --------------------------------------------------------------------------
- * TGW
- * -------------------------------------------------------------------------- */
+/* TGW */
 
 al_bool al_potb_is_suspicious_cluster(const al_potb_params *p,
                                       const al_potb_record *r) {
@@ -400,9 +395,7 @@ al_fixed al_potb_tgw(const al_potb_params *p, const al_potb_record *r) {
     return al_fixed_clamp(base, 0, p->cap_tgw);
 }
 
-/* --------------------------------------------------------------------------
- * NDM
- * -------------------------------------------------------------------------- */
+/* NDM */
 
 al_fixed al_potb_ndm(const al_potb_params *p, const al_potb_record *r,
                      const al_potb_network_stats *net) {
@@ -438,9 +431,7 @@ al_fixed al_potb_ndm(const al_potb_params *p, const al_potb_record *r,
     return al_fixed_clamp(ndm, AL_FIXED_HALF, AL_FIXED_ONE);
 }
 
-/* --------------------------------------------------------------------------
- * COD
- * -------------------------------------------------------------------------- */
+/* COD */
 
 al_fixed al_potb_cod(const al_potb_record *r) {
     if (r == NULL || r->correlation_score <= 0) {
@@ -450,9 +441,7 @@ al_fixed al_potb_cod(const al_potb_record *r) {
                         al_fixed_add(AL_FIXED_ONE, r->correlation_score));
 }
 
-/* --------------------------------------------------------------------------
- * Correlation signals
- * -------------------------------------------------------------------------- */
+/* Correlation signals */
 
 /* Absolute difference of two u32 as fixed point. */
 al_fixed al_u32_diff_fx(al_u32 a, al_u32 b) {
@@ -559,9 +548,167 @@ al_fixed al_potb_correlation_score(const al_potb_record *const *group,
     return al_fixed_mul(mean, size_factor);
 }
 
-/* --------------------------------------------------------------------------
- * Final weight
- * -------------------------------------------------------------------------- */
+/*
+ * Cluster detection (B1)
+ * Union-find (disjoint set) with path compression and union by rank.
+ * Two nodes are in the same cluster when their pairwise correlation exceeds
+ * the threshold. After grouping, each record's cluster_size,
+ * inbound_from_cluster, and correlation_score are populated.
+ */
+
+/* Threshold for merging two nodes into the same cluster. A pairwise score of
+ * 0.30 means the two nodes share at least one strong signal (e.g. same ASN +
+ * nearby registration, or matching uptime + both in small clusters). This is
+ * deliberately conservative — false negatives are cheaper than false positives
+ * because a false positive penalises honest operators. */
+#define CLUSTER_THRESHOLD AL_FX(3, 10)
+
+typedef struct {
+    al_u32 parent;
+    al_u32 rank;
+} cluster_uf;
+
+static al_u32 cluster_find(cluster_uf *uf, al_u32 x) {
+    al_u32 root = x;
+    while (uf[root].parent != root) {
+        root = uf[root].parent;
+    }
+    /* Path compression. */
+    while (uf[x].parent != root) {
+        al_u32 next = uf[x].parent;
+        uf[x].parent = root;
+        x = next;
+    }
+    return root;
+}
+
+static void cluster_union(cluster_uf *uf, al_u32 a, al_u32 b) {
+    al_u32 ra = cluster_find(uf, a);
+    al_u32 rb = cluster_find(uf, b);
+    if (ra == rb) return;
+    /* Union by rank. */
+    if (uf[ra].rank < uf[rb].rank) {
+        al_u32 tmp = ra; ra = rb; rb = tmp;
+    }
+    uf[rb].parent = ra;
+    if (uf[ra].rank == uf[rb].rank) {
+        ++uf[ra].rank;
+    }
+}
+
+void al_potb_detect_clusters(al_potb_record *records, al_size count) {
+    if (records == NULL || count < 2u) {
+        /* Zero or one node: nothing to cluster. If there is exactly one node,
+         * set cluster_size = 1 (it is its own singleton cluster). */
+        if (records != NULL && count == 1u) {
+            records[0].cluster_size = 1u;
+            records[0].inbound_from_cluster = 0u;
+            records[0].correlation_score = 0;
+        }
+        return;
+    }
+
+    /* Initialize union-find: each node is its own cluster. */
+    cluster_uf uf[AL_POTB_MAX_COMMITTEE];
+    AL_ASSERT(count <= AL_POTB_MAX_COMMITTEE);
+    for (al_size i = 0u; i < count; ++i) {
+        uf[i].parent = (al_u32)i;
+        uf[i].rank   = 0u;
+    }
+
+    /* Union nodes whose pairwise correlation exceeds the threshold. */
+    for (al_size i = 0u; i < count; ++i) {
+        for (al_size j = i + 1u; j < count; ++j) {
+            al_fixed corr = al_potb_correlation_pair(&records[i], &records[j]);
+            if (corr >= CLUSTER_THRESHOLD) {
+                cluster_union(uf, (al_u32)i, (al_u32)j);
+            }
+        }
+    }
+
+    /* Compute cluster sizes. */
+    al_u32 cluster_size[AL_POTB_MAX_COMMITTEE];
+    al_memzero(cluster_size, sizeof(cluster_size));
+    for (al_size i = 0u; i < count; ++i) {
+        al_u32 root = cluster_find(uf, (al_u32)i);
+        ++cluster_size[root];
+    }
+
+    /* For each node, find its cluster members and compute:
+     *   - cluster_size: how many nodes are in this cluster
+     *   - inbound_from_cluster: how many of this node's inbound attestations
+     *     come from nodes in the same cluster (estimated proportionally)
+     *   - correlation_score: the group's correlation score */
+    for (al_size i = 0u; i < count; ++i) {
+        al_u32 root = cluster_find(uf, (al_u32)i);
+        al_u32 size = cluster_size[root];
+        records[i].cluster_size = size;
+
+        if (size <= 1u) {
+            /* Singleton: no cluster peers. */
+            records[i].inbound_from_cluster = 0u;
+            records[i].correlation_score = 0;
+            continue;
+        }
+
+        /* Collect cluster members. */
+        al_u32 members[AL_POTB_MAX_COMMITTEE];
+        al_u32 member_count = 0u;
+        for (al_size j = 0u; j < count; ++j) {
+            if (cluster_find(uf, (al_u32)j) == root) {
+                members[member_count++] = (al_u32)j;
+            }
+        }
+
+        /* Estimate inbound_from_cluster: proportion of inbound attestations
+         * that come from within the cluster. If a node has N inbound edges
+         * and the cluster has S nodes (including itself), roughly S-1 of
+         * those edges are from cluster members if attestations are uniform.
+         * In practice this is a lower bound — farms have higher internal
+         * density. */
+        al_u32 external_total = 0u;
+        for (al_u32 k = 0u; k < member_count; ++k) {
+            al_u32 idx = members[k];
+            /* Count how many cluster peers this node has inbound edges from.
+             * We approximate: for each pair (i, peer), if correlation is
+             * high, count it as an internal edge. */
+            for (al_size j = 0u; j < count; ++j) {
+                if (j == idx) continue;
+                al_u32 j_root = cluster_find(uf, (al_u32)j);
+                if (j_root == root) {
+                    /* Same cluster: this is an internal edge. */
+                    al_fixed corr = al_potb_correlation_pair(&records[idx],
+                                                            &records[j]);
+                    if (corr > 0) {
+                        /* Weighted contribution: higher correlation means
+                         * more likely an internal edge. */
+                        ++external_total;
+                    }
+                }
+            }
+        }
+        /* inbound_from_cluster is the number of inbound edges from cluster
+         * peers. We estimate it from the attestation count and cluster size,
+         * bounded by the actual attestation count. */
+        al_u32 est = external_total;
+        if (est > records[i].inbound_attestations) {
+            est = records[i].inbound_attestations;
+        }
+        records[i].inbound_from_cluster = est;
+
+        /* Compute group correlation score. */
+        const al_potb_record *group[AL_POTB_MAX_COMMITTEE];
+        for (al_u32 k = 0u; k < member_count; ++k) {
+            group[k] = &records[members[k]];
+        }
+        al_fixed group_corr = al_potb_correlation_score(group, member_count);
+        for (al_u32 k = 0u; k < member_count; ++k) {
+            records[members[k]].correlation_score = group_corr;
+        }
+    }
+}
+
+/* Final weight */
 
 void al_potb_weight_compute(const al_potb_params *p, const al_potb_record *r,
                             const al_potb_network_stats *net, al_u32 now_day,
@@ -651,9 +798,7 @@ al_fixed al_potb_weight_effective_total(const al_potb_params *p,
     return w.total;
 }
 
-/* --------------------------------------------------------------------------
- * Levels
- * -------------------------------------------------------------------------- */
+/* Levels */
 
 al_potb_level al_potb_level_of(const al_potb_params *p, const al_potb_record *r,
                                al_u32 now_day) {
@@ -687,9 +832,7 @@ const char *al_potb_level_str(al_potb_level level) {
     return "unknown";
 }
 
-/* --------------------------------------------------------------------------
- * Slashing
- * -------------------------------------------------------------------------- */
+/* Slashing */
 
 int al_fixed_cmp_asc(const void *a, const void *b) {
     al_fixed va = *(const al_fixed *)a;

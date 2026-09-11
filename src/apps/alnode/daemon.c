@@ -2,6 +2,11 @@
  * daemon.c — the `run` subcommand: parse options, start the daemon loop.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "alnode.h"
 
 #include <errno.h>

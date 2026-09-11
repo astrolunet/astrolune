@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_FUZZ_INPUT_H
 #define ASTROLUNE_FUZZ_INPUT_H
 

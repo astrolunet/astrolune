@@ -6,6 +6,11 @@
  * the stack machine, memory model and host-function dispatch.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/vm.h"
 #include "internal.h"
 #include "internal/common.h"
@@ -15,9 +20,7 @@
 
 #include <string.h>
 
-/* --------------------------------------------------------------------------
- * Cost tables and defaults
- * -------------------------------------------------------------------------- */
+/* Cost tables and defaults */
 
 al_vm_config al_vm_config_default(void) {
     al_vm_config config;
@@ -153,9 +156,7 @@ static al_u64 vm_host_cost(const al_vm_config *config, al_vm_host_id id) {
                : al_vm_host_compute_cost(id);
 }
 
-/* --------------------------------------------------------------------------
- * Execution helpers
- * -------------------------------------------------------------------------- */
+/* Execution helpers */
 
 static al_bool vm_address_equal(const al_address *lhs,
                                 const al_address *rhs) {
@@ -227,9 +228,7 @@ static al_status vm_return_data(al_vm_result *out, al_arena *arena,
     return vm_finish(out, status);
 }
 
-/* --------------------------------------------------------------------------
- * Execution loop
- * -------------------------------------------------------------------------- */
+/* Execution loop */
 
 al_status al_vm_execute(al_bytes container, al_bytes calldata,
                         const al_vm_config *config,

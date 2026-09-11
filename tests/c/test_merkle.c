@@ -19,6 +19,11 @@
  * core/crypto/merkle.c's header comment.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/hash.h"
 
 #include "altest.h"

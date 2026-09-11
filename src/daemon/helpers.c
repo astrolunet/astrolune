@@ -1,10 +1,13 @@
 /* Node daemon implementation. See daemon.h for the design notes. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
-/* ------------------------------------------------------------------ */
-/* Small helpers                                                       */
-/* ------------------------------------------------------------------ */
+/* Small helpers */
 
 void daemon_log(const al_daemon *daemon, const char *message) {
     AL_LOG_INFO("daemon", "[%s] %s", daemon->config.data_dir, message);
@@ -47,7 +50,6 @@ al_status daemon_consensus_init(al_daemon *daemon) {
             record->votes_expected = 1000u;
             record->votes_cast = 1000u;
             record->inbound_attestations = 128u;
-            record->cluster_size = 1u;
             record->tdi = AL_FIXED_ONE;
             record->challenges_issued = 128u;
             record->challenges_passed = 128u;
@@ -111,7 +113,6 @@ al_status daemon_consensus_init(al_daemon *daemon) {
                 record->votes_expected = 1000u;
                 record->votes_cast = 1000u;
                 record->inbound_attestations = 128u;
-                record->cluster_size = 1u;
                 record->tdi = AL_FIXED_ONE;
                 record->challenges_issued = 128u;
                 record->challenges_passed = 128u;
@@ -143,6 +144,13 @@ al_status daemon_consensus_init(al_daemon *daemon) {
                 daemon->validator_index[i] = &daemon->validator_records[i];
             }
         }
+    }
+
+    /* Detect correlation groups and populate cluster fields on each record.
+     * This replaces the hardcoded cluster_size = 1 with actual graph-based
+     * detection, enabling the group weight cap (A5) to function. */
+    if (count > 1u) {
+        al_potb_detect_clusters(daemon->validator_records, count);
     }
 
     al_memzero(&daemon->validator_stats, sizeof(daemon->validator_stats));
@@ -247,9 +255,7 @@ al_bool parse_endpoint(const char *endpoint, char *host, al_size cap,
     return AL_TRUE;
 }
 
-/* ------------------------------------------------------------------ */
-/* Proposer identity                                                   */
-/* ------------------------------------------------------------------ */
+/* Proposer identity */
 
 al_status load_or_create_proposer(al_daemon *daemon) {
     /* An explicit seed (devnets, tests) wins over anything on disk. */

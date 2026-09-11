@@ -1,5 +1,10 @@
 /* P2P inbound message handling: transaction/block/consensus/handshake dispatch. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "p2p_internal.h"
 
 void handle_transaction(al_p2p *network, al_p2p_peer *origin,

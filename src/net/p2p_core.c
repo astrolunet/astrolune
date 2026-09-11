@@ -1,5 +1,10 @@
 /* Peer manager: core helpers, peer lifecycle, send primitives, public API. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "p2p_internal.h"
 
 al_socket invalid_socket(void) {
@@ -90,7 +95,7 @@ void seen_insert(al_hash256 *ring, al_size *next,
     *next = (*next + 1u) % AL_P2P_DEDUP_RING;
 }
 
-/* --- Outbound queueing ------------------------------------------------------ */
+/* Outbound queueing */
 
 al_status peer_queue(al_p2p_peer *peer, const void *data, al_size len) {
     if (len == 0u) return AL_OK;
@@ -171,7 +176,7 @@ al_status peer_send_get_blocks(al_p2p_peer *peer, al_height start,
                            al_writer_len(&writer));
 }
 
-/* --- Public API --------------------------------------------------------------- */
+/* Public API */
 
 al_status al_p2p_init(al_p2p *network, const al_p2p_config *config,
                       const al_p2p_handlers *handlers, const char *listen_host,

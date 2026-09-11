@@ -1,5 +1,10 @@
 /* Codec for the framed P2P messages. See wire.h for the formats. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "wire.h"
 #include "internal/common.h"
 
@@ -67,7 +72,7 @@ void al_wire_header_encode(al_writer *writer, al_wire_type type,
     al_writer_u32(writer, payload_len);
 }
 
-/* --- HELLO ----------------------------------------------------------------- */
+/* HELLO */
 
 void al_wire_hello_encode(al_writer *writer, const al_wire_hello *hello) {
     al_writer_u32(writer, hello->protocol_version);
@@ -93,7 +98,7 @@ al_status al_wire_hello_decode(al_bytes payload, al_wire_hello *out) {
     return AL_OK;
 }
 
-/* --- PING / PONG ----------------------------------------------------------- */
+/* PING / PONG */
 
 void al_wire_ping_encode(al_writer *writer, const al_wire_ping *ping) {
     al_writer_u64(writer, ping->nonce);
@@ -107,7 +112,7 @@ al_status al_wire_ping_decode(al_bytes payload, al_wire_ping *out) {
     return al_reader_finish(&reader);
 }
 
-/* --- GET_BLOCKS ------------------------------------------------------------ */
+/* GET_BLOCKS */
 
 void al_wire_get_blocks_encode(al_writer *writer,
                                const al_wire_get_blocks *request) {
@@ -130,7 +135,7 @@ al_status al_wire_get_blocks_decode(al_bytes payload,
     return AL_OK;
 }
 
-/* --- BLOCKS ---------------------------------------------------------------- */
+/* BLOCKS */
 
 al_status al_wire_blocks_begin(al_bytes payload,
                                al_wire_blocks_cursor *cursor) {
@@ -276,7 +281,7 @@ al_status al_wire_proposal_decode(al_bytes payload, al_wire_proposal *out) {
     return al_reader_finish(&reader);
 }
 
-/* --- EVIDENCE ------------------------------------------------------------- */
+/* EVIDENCE */
 
 void al_wire_evidence_encode(al_writer *writer, const al_wire_evidence *ev) {
     al_writer_u16(writer, (al_u16)ev->evidence.kind);
@@ -318,7 +323,7 @@ al_status al_wire_evidence_decode(al_bytes payload, al_wire_evidence *out) {
     return al_reader_finish(&reader);
 }
 
-/* --- KEY EXCHANGE ---------------------------------------------------------- */
+/* KEY EXCHANGE */
 
 void al_wire_key_exchange_encode(al_writer *writer,
                                  const al_wire_key_exchange *kx) {

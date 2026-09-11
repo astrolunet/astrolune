@@ -19,6 +19,11 @@
  * construction should be impossible, and swapping backends is a deliberate act.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/crypto.h"
 #include "astrolune/fixed.h"
 

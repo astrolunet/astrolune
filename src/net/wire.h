@@ -20,6 +20,11 @@
  * would only be an invitation to exhaust node memory.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_NET_WIRE_H
 #define ASTROLUNE_NET_WIRE_H
 
@@ -99,14 +104,14 @@ void al_wire_hello_encode(al_writer *writer, const al_wire_hello *hello);
 AL_NODISCARD al_status al_wire_hello_decode(al_bytes payload,
                                             al_wire_hello *out);
 
-/* --- PING / PONG ----------------------------------------------------------- */
+/* PING / PONG */
 typedef struct al_wire_ping { al_u64 nonce; } al_wire_ping;
 
 void al_wire_ping_encode(al_writer *writer, const al_wire_ping *ping);
 AL_NODISCARD al_status al_wire_ping_decode(al_bytes payload,
                                            al_wire_ping *out);
 
-/* --- GET_BLOCKS ------------------------------------------------------------ */
+/* GET_BLOCKS */
 typedef struct al_wire_get_blocks {
     al_height start;
     al_u32    max_count;
@@ -159,7 +164,7 @@ AL_NODISCARD al_status al_wire_proposal_encode(
 AL_NODISCARD al_status al_wire_proposal_decode(al_bytes payload,
                                                 al_wire_proposal *out);
 
-/* --- EVIDENCE ------------------------------------------------------------- */
+/* EVIDENCE */
 /* Encoded as: u16 kind, u32 chain_id, u64 height, u32 round,
  * then two vote structs (u8 phase, hash256 block_hash, hash256 committee_hash,
  * pubkey voter, signature signature). */
@@ -171,7 +176,7 @@ void al_wire_evidence_encode(al_writer *writer, const al_wire_evidence *ev);
 AL_NODISCARD al_status al_wire_evidence_decode(al_bytes payload,
                                                 al_wire_evidence *out);
 
-/* --- KEY EXCHANGE ---------------------------------------------------------- */
+/* KEY EXCHANGE */
 /* Ephemeral X25519 public key for transport encryption. Sent after HELLO.
  * Once both peers have exchanged keys, all subsequent frames are AEAD-encrypted
  * using a shared secret derived from the X25519 exchange. */

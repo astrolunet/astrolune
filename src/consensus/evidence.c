@@ -2,6 +2,11 @@
  * Evidence detection and verification implementation.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/evidence.h"
 #include "finality.h"
 
@@ -10,9 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* --------------------------------------------------------------------------
- * Evidence verification
- * -------------------------------------------------------------------------- */
+/* Evidence verification */
 
 static al_bool pubkey_eq(const al_pubkey *a, const al_pubkey *b) {
     return al_bytes_eq(al_bytes_make(a->bytes, AL_PUBKEY_SIZE),
@@ -135,9 +138,7 @@ al_status al_evidence_create(const al_consensus_vote *vote1,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Evidence encoding/decoding
- * -------------------------------------------------------------------------- */
+/* Evidence encoding/decoding */
 
 al_status al_evidence_encode(const al_evidence *evidence,
                              al_bytes_mut out,
@@ -210,9 +211,7 @@ al_status al_evidence_decode(al_bytes encoded, al_evidence *out) {
     return al_reader_finish(&reader);
 }
 
-/* --------------------------------------------------------------------------
- * Evidence processing
- * -------------------------------------------------------------------------- */
+/* Evidence processing */
 
 al_status al_evidence_process(const al_potb_params *params,
                               al_potb_record *record,
@@ -243,9 +242,7 @@ al_status al_evidence_process(const al_potb_params *params,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Storage key helpers
- * -------------------------------------------------------------------------- */
+/* Storage key helpers */
 
 void al_evidence_key(al_height height, char *out, al_size out_cap) {
     if (out == NULL || out_cap == 0u) return;

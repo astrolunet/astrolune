@@ -6,6 +6,11 @@
  * this is the only consumer.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_DAEMON_RANDOM_H
 #define ASTROLUNE_DAEMON_RANDOM_H
 

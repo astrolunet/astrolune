@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/tx.h"
 #include "fuzz_input.h"
 

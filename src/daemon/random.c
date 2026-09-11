@@ -1,5 +1,10 @@
 /* Platform entropy for key generation. See random.h. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "random.h"
 
 #if defined(AL_OS_WINDOWS)

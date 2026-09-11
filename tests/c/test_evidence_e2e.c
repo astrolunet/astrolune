@@ -11,6 +11,11 @@
  * execution layer correctly handles evidence transactions.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "finality.h"
 #include "astrolune/evidence.h"
@@ -19,7 +24,7 @@
 
 #define AL_TEST_SUITE_NAME "evidence_e2e"
 
-/* ---------- helpers -------------------------------------------------- */
+/* helpers */
 
 static al_keypair keypair_with(al_u8 value) {
     al_u8 seed[32] = {0};
@@ -105,7 +110,7 @@ static void make_double_sign(al_keypair *kp, al_u32 chain_id,
     AL_CHECK_EQ_STATUS(al_consensus_vote_sign(out2, &kp->sk), AL_OK);
 }
 
-/* ---------- tests ---------------------------------------------------- */
+/* tests */
 
 /* Test 1: Evidence tx executes and receipt is OK. */
 AL_TEST(evidence_tx_executes) {

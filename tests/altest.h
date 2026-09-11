@@ -23,6 +23,11 @@
  * reports every broken assertion instead of only the first.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_TESTS_ALTEST_H
 #define ASTROLUNE_TESTS_ALTEST_H
 
@@ -181,9 +186,7 @@ AL_MAYBE_UNUSED static al_size al_test_unhex(const char *hex, void *out,
     return len;
 }
 
-/* --------------------------------------------------------------------------
- * Runner
- * -------------------------------------------------------------------------- */
+/* Runner */
 
 #define AL_RUN(fn)                                                       \
     do {                                                                 \

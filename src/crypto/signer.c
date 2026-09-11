@@ -6,6 +6,11 @@
  * These features are only available when building with the sodium backend.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/signer.h"
 
 #include "internal/common.h"
@@ -18,17 +23,13 @@
 #  include <sodium.h>
 #endif
 
-/* --------------------------------------------------------------------------
- * Signer structure
- * -------------------------------------------------------------------------- */
+/* Signer structure */
 
 struct al_signer {
     al_keypair keypair;
 };
 
-/* --------------------------------------------------------------------------
- * Constructors
- * -------------------------------------------------------------------------- */
+/* Constructors */
 
 al_status al_signer_new_from_keypair(const al_keypair *kp, al_signer **out) {
     if (kp == NULL || out == NULL) return AL_ERR_INVALID_ARG;
@@ -56,9 +57,7 @@ al_status al_signer_new_from_hex(const char *hex, al_signer **out) {
     return al_signer_new_from_keypair(&kp, out);
 }
 
-/* --------------------------------------------------------------------------
- * Interface methods
- * -------------------------------------------------------------------------- */
+/* Interface methods */
 
 al_status al_signer_sign(al_signer *signer, const al_hash256 *hash,
                          al_sig *sig_out) {
@@ -80,9 +79,7 @@ void al_signer_destroy(al_signer *signer) {
     free(signer);
 }
 
-/* --------------------------------------------------------------------------
- * Encrypted seed storage helpers
- * -------------------------------------------------------------------------- */
+/* Encrypted seed storage helpers */
 
 #if defined(ASTROLUNE_HAS_SODIUM)
 

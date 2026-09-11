@@ -8,13 +8,16 @@
  * Verified against the NIST published vectors in tests/c/test_hash.c.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/hash.h"
 
 #include "internal/common.h"
 
-/* --------------------------------------------------------------------------
- * SHA-256 core
- * -------------------------------------------------------------------------- */
+/* SHA-256 core */
 
 /* First 32 bits of the fractional parts of the cube roots of the first 64
  * primes (FIPS 180-4 section 4.2.2). */
@@ -172,9 +175,7 @@ void al_sha256d(const void *data, al_size len, al_hash256 *out) {
     al_sha256(first.bytes, AL_HASH_SIZE, out);
 }
 
-/* --------------------------------------------------------------------------
- * Domain-separated hashing
- * -------------------------------------------------------------------------- */
+/* Domain-separated hashing */
 
 /*
  * The tag is absorbed as its 32-byte digest, not as raw text.
@@ -212,9 +213,7 @@ void al_hash_tagged_pair(const char *tag, const al_hash256 *left,
     al_sha256_final(&ctx, out);
 }
 
-/* --------------------------------------------------------------------------
- * Hash utilities
- * -------------------------------------------------------------------------- */
+/* Hash utilities */
 
 al_hash256 al_hash_zero(void) {
     al_hash256 h;

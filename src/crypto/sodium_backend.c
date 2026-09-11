@@ -12,6 +12,11 @@
  * network (VRF is unused in consensus; VDF is optional via NULL checks).
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/crypto.h"
 
 #include "internal/common.h"
@@ -187,9 +192,7 @@ al_status al_verify_hash(const al_pubkey *pk, const al_hash256 *h,
     return al_sodium_verify(pk, al_bytes_make(h->bytes, AL_HASH_SIZE), sig);
 }
 
-/* --------------------------------------------------------------------------
- * Key Exchange (X25519)
- * -------------------------------------------------------------------------- */
+/* Key Exchange (X25519) */
 
 al_status al_kx_keygen(al_kx_keypair *out) {
     if (out == NULL) return AL_ERR_INVALID_ARG;
@@ -211,9 +214,7 @@ al_status al_kx_shared(const al_kx_keypair *local,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * AEAD (XChaCha20-Poly1305)
- * -------------------------------------------------------------------------- */
+/* AEAD (XChaCha20-Poly1305) */
 
 al_status al_aead_encrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
                            const al_u8 nonce[AL_AEAD_NONCE_SIZE],

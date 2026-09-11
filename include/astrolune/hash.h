@@ -16,6 +16,11 @@
  * enumerate every domain the protocol defines.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_HASH_H
 #define ASTROLUNE_HASH_H
 
@@ -24,9 +29,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * SHA-256
- * -------------------------------------------------------------------------- */
+/* SHA-256 */
 
 #define AL_SHA256_BLOCK_SIZE  64
 #define AL_SHA256_DIGEST_SIZE 32
@@ -55,9 +58,7 @@ AL_PUBLIC void al_sha256_bytes(al_bytes data, al_hash256 *out);
  * exploitable and the input length is not itself authenticated. */
 AL_PUBLIC void al_sha256d(const void *data, al_size len, al_hash256 *out);
 
-/* --------------------------------------------------------------------------
- * Domain-separated hashing
- * -------------------------------------------------------------------------- */
+/* Domain-separated hashing */
 
 /*
  * Every domain tag the protocol uses. Adding a hashed structure means adding a
@@ -105,9 +106,7 @@ AL_PUBLIC void al_hash_tagged_bytes(const char *tag, al_bytes data, al_hash256 *
 AL_PUBLIC void al_hash_tagged_pair(const char *tag, const al_hash256 *left,
                          const al_hash256 *right, al_hash256 *out);
 
-/* --------------------------------------------------------------------------
- * HMAC-SHA256 and HKDF
- * -------------------------------------------------------------------------- */
+/* HMAC-SHA256 and HKDF */
 
 typedef struct al_hmac_ctx {
     al_sha256_ctx inner;
@@ -130,9 +129,7 @@ AL_PUBLIC AL_NODISCARD al_status al_hkdf_expand(const al_hash256 *prk,
                                       const void *info, al_size info_len,
                                       void *out, al_size out_len);
 
-/* --------------------------------------------------------------------------
- * Hash utilities
- * -------------------------------------------------------------------------- */
+/* Hash utilities */
 
 AL_PUBLIC al_hash256 al_hash_zero(void);
 AL_PUBLIC AL_NODISCARD al_bool al_hash_eq(const al_hash256 *a, const al_hash256 *b);
@@ -146,15 +143,14 @@ AL_PUBLIC int al_hash_cmp(const al_hash256 *a, const al_hash256 *b);
  * This is the bit order the sparse Merkle tree descends in. */
 AL_PUBLIC AL_NODISCARD al_bool al_hash_bit(const al_hash256 *h, al_size i);
 
-/* --------------------------------------------------------------------------
+/*
  * Merkle tree (ordered, for transaction lists)
- *
  * Binary tree over an ordered sequence. Leaves and interior nodes use different
  * domain tags, which is what prevents the second-preimage attack where an
  * interior node is presented as a leaf. An odd node count promotes the last
  * node unchanged rather than duplicating it - duplication is the CVE-2012-2459
  * bug, where two distinct transaction lists hash to one root.
- * -------------------------------------------------------------------------- */
+ */
 
 /* Root of `count` leaves. Empty input yields the all-zero digest. */
 AL_PUBLIC void al_merkle_root(const al_hash256 *leaves, al_size count, al_hash256 *out);

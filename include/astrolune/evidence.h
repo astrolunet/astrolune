@@ -10,6 +10,11 @@
  * - Second offence: permanent ban
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_EVIDENCE_H
 #define ASTROLUNE_EVIDENCE_H
 
@@ -22,9 +27,7 @@ AL_EXTERN_C_BEGIN
 /* Forward declaration - full definition in internal consensus/finality.h */
 typedef struct al_consensus_vote al_consensus_vote;
 
-/* --------------------------------------------------------------------------
- * Evidence types
- * -------------------------------------------------------------------------- */
+/* Evidence types */
 
 typedef enum al_evidence_kind {
     AL_EVIDENCE_DOUBLE_SIGN_VOTE = 0,
@@ -32,9 +35,7 @@ typedef enum al_evidence_kind {
     AL_EVIDENCE_KIND_SENTINEL = 0x7fffffff
 } al_evidence_kind;
 
-/* --------------------------------------------------------------------------
- * Evidence record
- * -------------------------------------------------------------------------- */
+/* Evidence record */
 
 #define AL_EVIDENCE_MAX_ENCODED_SIZE (2u + 4u + 8u + 4u + 1u + \
     2u * (4u + 8u + 1u + AL_HASH_SIZE + AL_HASH_SIZE + AL_PUBKEY_SIZE + AL_SIGNATURE_SIZE))
@@ -59,9 +60,7 @@ typedef struct al_evidence {
     } vote1, vote2;
 } al_evidence;
 
-/* --------------------------------------------------------------------------
- * Evidence verification
- * -------------------------------------------------------------------------- */
+/* Evidence verification */
 
 /*
  * Verify that evidence is valid:
@@ -83,9 +82,7 @@ AL_PUBLIC AL_NODISCARD al_status al_evidence_create(
     const al_consensus_vote *vote2,
     al_evidence *out);
 
-/* --------------------------------------------------------------------------
- * Evidence encoding/decoding
- * -------------------------------------------------------------------------- */
+/* Evidence encoding/decoding */
 
 AL_PUBLIC AL_NODISCARD al_status al_evidence_encode(
     const al_evidence *evidence,
@@ -96,9 +93,7 @@ AL_PUBLIC AL_NODISCARD al_status al_evidence_decode(
     al_bytes encoded,
     al_evidence *out);
 
-/* --------------------------------------------------------------------------
- * Evidence processing
- * -------------------------------------------------------------------------- */
+/* Evidence processing */
 
 /*
  * Process evidence against a validator record.
@@ -110,9 +105,7 @@ AL_PUBLIC AL_NODISCARD al_status al_evidence_process(
     const al_evidence *evidence,
     al_u32 now_day);
 
-/* --------------------------------------------------------------------------
- * Storage key helpers
- * -------------------------------------------------------------------------- */
+/* Storage key helpers */
 
 /* Storage key prefix for evidence records. */
 #define AL_EVIDENCE_KEY_PREFIX "evidence:"

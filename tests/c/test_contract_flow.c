@@ -5,6 +5,11 @@
  * CALL transaction, exercising al_state_txn storage exactly as production.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "astrolune/block.h"
 #include "astrolune/vm.h"
@@ -12,7 +17,7 @@
 #include "node.h"
 #include "state_fixture.h"
 
-/* --- container builder (mirrors tools/trocto lowering conventions) ------- */
+/* container builder (mirrors tools/trocto lowering conventions) */
 
 static void push_u64(al_u8 *code, al_size *len, al_u64 v) {
     code[(*len)++] = AL_VM_PUSH64;
@@ -117,7 +122,7 @@ static al_status build_counter_container(al_u8 *out, al_size cap,
                                   (al_bytes_mut){ out, cap }, written);
 }
 
-/* --- fixtures ------------------------------------------------------------- */
+/* fixtures */
 
 typedef struct flow_fixture {
     al_test_state_fixture states;
@@ -291,7 +296,7 @@ static al_status read_counter(flow_fixture *f, const al_address *contract,
     return AL_OK;
 }
 
-/* --- the test --------------------------------------------------------------- */
+/* the test */
 
 AL_TEST(deploy_then_call_updates_contract_storage) {
     flow_fixture f;

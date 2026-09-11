@@ -8,6 +8,11 @@
  * or the complete new head, never to a root whose objects were not flushed.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_NODE_STORAGE_H
 #define ASTROLUNE_NODE_STORAGE_H
 

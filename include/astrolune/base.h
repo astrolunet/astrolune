@@ -15,15 +15,18 @@
  * The rules are spelled out in docs/02-architecture/c-cpp-boundary.md.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_BASE_H
 #define ASTROLUNE_BASE_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-/* --------------------------------------------------------------------------
- * Linkage
- * -------------------------------------------------------------------------- */
+/* Linkage */
 
 #ifdef __cplusplus
 #  define AL_EXTERN_C_BEGIN extern "C" {
@@ -35,9 +38,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * Compiler and platform detection
- * -------------------------------------------------------------------------- */
+/* Compiler and platform detection */
 
 #if defined(__clang__)
 #  define AL_COMPILER_CLANG 1
@@ -63,13 +64,12 @@ AL_EXTERN_C_BEGIN
 #  define AL_ARCH_ARM64 1
 #endif
 
-/* --------------------------------------------------------------------------
+/*
  * Attributes
- *
  * Spelled through macros rather than used directly: the C23 attribute syntax is
  * only partially available across the three compilers we support, and the core
  * must build identically on all of them.
- * -------------------------------------------------------------------------- */
+ */
 
 #if defined(__cplusplus)
 #  define AL_NODISCARD     [[nodiscard]]
@@ -148,13 +148,12 @@ AL_EXTERN_C_BEGIN
 
 #define AL_UNUSED(x) ((void)(x))
 
-/* --------------------------------------------------------------------------
+/*
  * Scalar types
- *
  * The core uses these spellings rather than the raw stdint names so that the
  * width of a consensus-visible field is obvious at the point of use. Anything
  * serialised into a block or hashed must use a fixed-width type.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef uint8_t  al_u8;
 typedef uint16_t al_u16;
@@ -214,13 +213,12 @@ typedef struct al_fee_params {
     al_amount     storage_deposit_per_byte;
 } al_fee_params;
 
-/* --------------------------------------------------------------------------
+/*
  * Byte arrays
- *
  * Hashes and addresses are wrapped in structs rather than used as raw arrays so
  * that they are values: assignable, returnable, and impossible to silently
  * decay to a pointer or to be confused with each other.
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_HASH_SIZE      32
 #define AL_ADDRESS_SIZE   32
@@ -237,13 +235,12 @@ typedef struct al_sig     { al_u8 bytes[AL_SIGNATURE_SIZE];  } al_sig;
 AL_STATIC_ASSERT(sizeof(al_hash256) == 32, "al_hash256 must be exactly 32 bytes");
 AL_STATIC_ASSERT(sizeof(al_address) == 32, "al_address must be exactly 32 bytes");
 
-/* --------------------------------------------------------------------------
+/*
  * Status codes
- *
  * The core reports failure by return value, never by exception, errno or a
  * global. Functions that produce a value take an out-parameter and return
  * al_status. Anything that can fail is AL_NODISCARD.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef enum al_status {
     AL_OK = 0,
@@ -328,9 +325,7 @@ AL_PUBLIC AL_NODISCARD al_status al_fee_next_base_prices(
         if (al_try_ != AL_OK) return al_try_; \
     } while (0)
 
-/* --------------------------------------------------------------------------
- * Version
- * -------------------------------------------------------------------------- */
+/* Version */
 
 #define AL_VERSION_MAJOR 0
 #define AL_VERSION_MINOR 1

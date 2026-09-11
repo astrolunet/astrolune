@@ -18,6 +18,11 @@
  *     for TLS. This keeps the C codebase free of TLS library dependencies.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_RPC_SERVER_H
 #define ASTROLUNE_RPC_SERVER_H
 

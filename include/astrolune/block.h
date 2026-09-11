@@ -1,5 +1,10 @@
 /* astrolune/block.h - canonical genesis, blocks and deterministic execution. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_BLOCK_H
 #define ASTROLUNE_BLOCK_H
 

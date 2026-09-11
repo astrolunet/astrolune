@@ -9,6 +9,11 @@
  * that happen to work on x86 and fault on stricter targets.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/arena.h"
 
 #include "altest.h"

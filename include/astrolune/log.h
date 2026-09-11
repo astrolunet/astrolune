@@ -6,6 +6,11 @@
  * Thread-safe via a global spinlock. The global level filter is atomic.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_LOG_H
 #define ASTROLUNE_LOG_H
 
@@ -41,11 +46,10 @@ void al_log_write(al_log_level level, const char *module,
 /* Shutdown the logging subsystem (flushes output). */
 void al_log_shutdown(void);
 
-/* --------------------------------------------------------------------------
+/*
  * Convenience macros
- *
  * Usage:  AL_LOG_INFO("net", "connected to %s:%u", host, port);
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_LOG_TRACE(mod, ...) \
     al_log_write(AL_LOG_TRACE, (mod), __VA_ARGS__)

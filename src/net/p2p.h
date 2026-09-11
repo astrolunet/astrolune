@@ -17,6 +17,11 @@
  * buffers; embedding is by value so a host process controls placement.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_NET_P2P_H
 #define ASTROLUNE_NET_P2P_H
 

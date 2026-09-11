@@ -5,6 +5,11 @@
  * config file values. Config file provides defaults; CLI is authoritative.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_DAEMON_CONFIG_H
 #define ASTROLUNE_DAEMON_CONFIG_H
 

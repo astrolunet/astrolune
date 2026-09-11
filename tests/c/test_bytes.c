@@ -18,15 +18,18 @@
  * suite's totals.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/bytes.h"
 
 #include "altest.h"
 
 #define AL_TEST_SUITE_NAME "bytes"
 
-/* --------------------------------------------------------------------------
- * Helpers
- * -------------------------------------------------------------------------- */
+/* Helpers */
 
 /*
  * Round-trip one value through the writer and back, asserting minimality.
@@ -71,9 +74,7 @@ static void al_test_varint_rejects(const char *hex, al_status expect) {
     AL_CHECK_EQ_STATUS(al_reader_finish(&r), expect);
 }
 
-/* --------------------------------------------------------------------------
- * Views
- * -------------------------------------------------------------------------- */
+/* Views */
 
 AL_TEST(views_make_and_eq) {
     static const al_u8 abc[3] = {'a', 'b', 'c'};
@@ -188,9 +189,7 @@ AL_TEST(views_slice_bounds) {
     AL_CHECK_EQ_U64(al_bytes_slice(al_bytes_empty(), 0u, 1u).len, 0u);
 }
 
-/* --------------------------------------------------------------------------
- * Reader
- * -------------------------------------------------------------------------- */
+/* Reader */
 
 AL_TEST(reader_integers_are_little_endian) {
     /*
@@ -402,9 +401,7 @@ AL_TEST(reader_finish_rejects_trailing_bytes) {
     AL_CHECK_EQ_STATUS(al_reader_finish(&s), AL_ERR_TRAILING_BYTES);
 }
 
-/* --------------------------------------------------------------------------
- * Varint
- * -------------------------------------------------------------------------- */
+/* Varint */
 
 AL_TEST(varint_roundtrip_at_every_width) {
     /* One value per encoded length, at both ends of each group's range. The
@@ -644,9 +641,7 @@ AL_TEST(varint_two_byte_space_is_injective) {
     AL_CHECK_EQ_U64(single + noncanon + truncated + accepted, 65536u);
 }
 
-/* --------------------------------------------------------------------------
- * Writer
- * -------------------------------------------------------------------------- */
+/* Writer */
 
 AL_TEST(writer_byte_order_and_length) {
     al_u8    buf[32];
@@ -814,9 +809,7 @@ AL_TEST(writer_reader_roundtrip_compound) {
         "0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-/* --------------------------------------------------------------------------
- * Hex
- * -------------------------------------------------------------------------- */
+/* Hex */
 
 AL_TEST(hex_encode_contract) {
     static const al_u8 src[4] = {0x00u, 0x0fu, 0xf0u, 0xffu};
@@ -1023,7 +1016,6 @@ AL_TEST(hex_roundtrip_and_wrappers) {
     AL_CHECK_EQ_U64(strlen(ahex), 64u);
 }
 
-/* -------------------------------------------------------------------------- */
 
 AL_TEST_MAIN {
     AL_RUN(views_make_and_eq);

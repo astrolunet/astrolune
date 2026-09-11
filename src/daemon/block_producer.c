@@ -1,5 +1,10 @@
 /* Block production: builds a block, signs a proposal, relays. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
 al_status daemon_produce_block(al_daemon *daemon) {

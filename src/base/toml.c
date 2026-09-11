@@ -1,5 +1,10 @@
 /* Minimal TOML parser. See toml.h for design notes. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/toml.h"
 
 #include <stdio.h>
@@ -7,9 +12,7 @@
 #include <string.h>
 #include <ctype.h>
 
-/* ------------------------------------------------------------------ */
-/* Arena-style bump allocator for parse results                        */
-/* ------------------------------------------------------------------ */
+/* Arena-style bump allocator for parse results */
 
 typedef struct toml_alloc {
     void   *blocks[256];
@@ -38,9 +41,7 @@ static char *toml_strdup(toml_alloc *a, const char *s) {
     return toml_alloc_str(a, s, strlen(s));
 }
 
-/* ------------------------------------------------------------------ */
-/* Tokenizer                                                           */
-/* ------------------------------------------------------------------ */
+/* Tokenizer */
 
 typedef enum toml_token_kind {
     TOK_KEY,
@@ -154,9 +155,7 @@ static toml_token lexer_next(toml_lexer *lex) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Parser                                                              */
-/* ------------------------------------------------------------------ */
+/* Parser */
 
 typedef struct toml_parser {
     toml_lexer  lex;
@@ -408,9 +407,7 @@ static al_toml_value *resolve_dotted_path(toml_parser *p, al_toml_value *root,
     return cur;
 }
 
-/* ------------------------------------------------------------------ */
-/* Public API                                                          */
-/* ------------------------------------------------------------------ */
+/* Public API */
 
 al_status al_toml_parse(const char *text, al_toml_value **out) {
     if (!text || !out) return AL_ERR_INVALID_ARG;

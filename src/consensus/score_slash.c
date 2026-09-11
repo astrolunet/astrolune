@@ -2,11 +2,14 @@
  * Slashing, offence penalties, appeal resolution.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "score_internal.h"
 
-/* --------------------------------------------------------------------------
- * Slashing
- * -------------------------------------------------------------------------- */
+/* Slashing */
 
 const char *al_potb_offence_str(al_potb_offence offence) {
     switch (offence) {
@@ -89,9 +92,7 @@ al_status al_potb_slash(const al_potb_params *p, al_potb_record *r,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Appeal (B4)
- * -------------------------------------------------------------------------- */
+/* Appeal (B4) */
 
 al_status al_potb_appeal_resolve(
     const al_potb_params *p, al_potb_record *record,

@@ -7,13 +7,16 @@
  * parsers acquire the untested paths that malformed network input finds.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/bytes.h"
 
 #include "internal/common.h"
 
-/* --------------------------------------------------------------------------
- * Views
- * -------------------------------------------------------------------------- */
+/* Views */
 
 al_bytes al_bytes_make(const void *data, al_size len) {
     al_bytes b;
@@ -65,9 +68,7 @@ al_bytes al_bytes_slice(al_bytes b, al_size offset, al_size len) {
     return al_bytes_make(b.data + offset, len);
 }
 
-/* --------------------------------------------------------------------------
- * Reader
- * -------------------------------------------------------------------------- */
+/* Reader */
 
 void al_reader_init(al_reader *r, al_bytes src) {
     r->data   = src.data;
@@ -211,9 +212,7 @@ al_status al_reader_finish(const al_reader *r) {
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Writer
- * -------------------------------------------------------------------------- */
+/* Writer */
 
 void al_writer_init(al_writer *w, void *buf, al_size cap) {
     w->data   = (al_u8 *)buf;
@@ -315,9 +314,7 @@ al_size al_varint_size(al_u64 v) {
     return n;
 }
 
-/* --------------------------------------------------------------------------
- * Hex
- * -------------------------------------------------------------------------- */
+/* Hex */
 
 static const char al_hex_digits[] = "0123456789abcdef";
 

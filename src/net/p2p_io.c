@@ -1,5 +1,10 @@
 /* P2P socket I/O: frame assembly, read/write, timeout enforcement. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "p2p_internal.h"
 
 void feed_bytes(al_p2p *network, al_size index, al_bytes chunk,

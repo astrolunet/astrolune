@@ -12,6 +12,11 @@
  *   - Operators are responsible for data-directory protection and backups.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_SIGNER_H
 #define ASTROLUNE_SIGNER_H
 
@@ -20,9 +25,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * Signer interface (opaque)
- * -------------------------------------------------------------------------- */
+/* Signer interface (opaque) */
 
 typedef struct al_signer al_signer;
 
@@ -38,9 +41,7 @@ AL_PUBLIC AL_NODISCARD al_status al_signer_pubkey(const al_signer *signer,
 /* Destroy the signer and release resources. */
 AL_PUBLIC void al_signer_destroy(al_signer *signer);
 
-/* --------------------------------------------------------------------------
- * Constructors
- * -------------------------------------------------------------------------- */
+/* Constructors */
 
 /* Create a signer from an existing keypair (takes ownership of copy). */
 AL_PUBLIC AL_NODISCARD al_status al_signer_new_from_keypair(
@@ -50,14 +51,12 @@ AL_PUBLIC AL_NODISCARD al_status al_signer_new_from_keypair(
 AL_PUBLIC AL_NODISCARD al_status al_signer_new_from_hex(
     const char *hex, al_signer **out);
 
-/* --------------------------------------------------------------------------
+/*
  * Encrypted seed storage helpers
- *
  * These helpers encrypt/decrypt a 32-byte seed using a passphrase. They do
  * NOT perform file I/O; the caller is responsible for persisting the result.
- *
  * Encrypted format: salt(32) || nonce(24) || ciphertext(48)
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_SIGNER_SEED_SIZE    32u
 #define AL_SIGNER_SALT_SIZE    32u

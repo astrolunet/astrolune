@@ -36,6 +36,11 @@
  * reason the parameters below are all tunable rather than baked in.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_POTB_H
 #define ASTROLUNE_POTB_H
 
@@ -46,19 +51,17 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
+/*
  * Protocol parameters
- *
  * Grouped in a struct rather than spread across #defines so that a simulation
  * can sweep them, and so that the values a node used are recoverable from a log
  * line. al_potb_params_default() returns the values in the specification.
- *
  * Changing any of these changes consensus. They are part of the chain's identity
  * and belong in the genesis block, not in a config file a node operator edits.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_potb_params {
-    /* --- TBS: time and behaviour ------------------------------------------ */
+    /* TBS: time and behaviour */
 
     /* Days of uptime before loyalty accrues. A Sybil farm spun up last week gets
      * nothing from this term; that is its whole purpose. */
@@ -76,14 +79,14 @@ typedef struct al_potb_params {
     /* Half-life of the decay past the grace period, in days. */
     al_u32 decay_half_life_days;
 
-    /* --- Caps ------------------------------------------------------------- */
+    /* Caps */
 
     /* Hard ceilings on the two main factors. Together with the per-node share
      * limit these are what bound any single identity's influence. */
     al_fixed cap_tbs;
     al_fixed cap_tgw;
 
-    /* --- Trust graph ------------------------------------------------------ */
+    /* Trust graph */
 
     /* A cluster is suspicious when this share or more of a node's inbound
      * attestations come from one small group with no external links. Q32.32
@@ -95,7 +98,7 @@ typedef struct al_potb_params {
      * discounts the inbound edges from that window. */
     al_fixed tdi_suspicious_below;
 
-    /* --- Committee -------------------------------------------------------- */
+    /* Committee */
 
     al_u32 committee_size;
     /* Blocks a committee lives for before its membership has fully turned over. */
@@ -118,13 +121,13 @@ typedef struct al_potb_params {
      * consensus value and it belongs where the others are. */
     al_fixed candidate_weight_factor;
 
-    /* --- Epoch ------------------------------------------------------------ */
+    /* Epoch */
 
     /* Length of an epoch in days. TGW is recomputed and external challenges are
      * issued at epoch boundaries. */
     al_u32 epoch_days;
 
-    /* --- Rewards ---------------------------------------------------------- */
+    /* Rewards */
 
     /* Split in basis points, and it must total 10000. Flat/weighted/bonded:
      * equal share for honest participation, a weighted share for tenure, and a
@@ -137,7 +140,7 @@ typedef struct al_potb_params {
     /* Ceiling on any one node's reward as a multiple of the flat share. */
     al_fixed reward_max_multiple;
 
-    /* --- Anti-domination (A1) --------------------------------------------- */
+    /* Anti-domination (A1) */
 
     /* Maximum allowed Gini coefficient across eligible node weights. Exceeding
      * this triggers an alert and temporarily lowers CAP_TBS/CAP_TGW for
@@ -146,21 +149,21 @@ typedef struct al_potb_params {
     /* Maximum allowed Herfindahl-Hirschman Index across top-20 nodes. */
     al_fixed hhi_max;
 
-    /* --- Group weight limit (Q16 / A5) ------------------------------------ */
+    /* Group weight limit (Q16 / A5) */
     /* Maximum share of total network weight that any single correlated group
      * may hold. Nodes in an over-weight group have their effective weight
      * scaled down: effective = raw * min(1, max_share / group_share).
      * Default 0.03 (3%). Set to 0 to disable group normalization. */
     al_fixed max_group_weight_share;
 
-    /* --- Committee size randomization (B3) -------------------------------- */
+    /* Committee size randomization (B3) */
 
     /* Committee size is randomized in [min, max] per epoch to prevent a cartel
      * from knowing the exact majority threshold in advance. */
     al_u32 committee_size_min;
     al_u32 committee_size_max;
 
-    /* --- Genesis dilution (B2) -------------------------------------------- */
+    /* Genesis dilution (B2) */
 
     /* Initial bonus weight for genesis nodes, as a Q32.32 additive term
      * applied to TBS. Linearly diluted to zero over genesis_dilution_days. */
@@ -178,16 +181,14 @@ AL_PUBLIC al_potb_params al_potb_params_default(void);
  * genesis load so a misconfigured chain fails to start instead of forking. */
 AL_PUBLIC AL_NODISCARD al_status al_potb_params_validate(const al_potb_params *p);
 
-/* --------------------------------------------------------------------------
+/*
  * Node behaviour record
- *
  * The observable history of one node, as every other node sees it. This is
  * consensus state: it is derived from on-chain evidence, so all nodes hold the
  * same record for a given identity and therefore compute the same weight.
- *
  * Time is counted in protocol days - the day index of the chain, derived from
  * block height, never from a local clock.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_potb_record {
     al_pubkey identity;
@@ -221,7 +222,7 @@ typedef struct al_potb_record {
     /* Set once double-signing has been proven twice. Permanent. */
     al_bool permanently_banned;
 
-    /* --- Trust graph inputs ---------------------------------------------- */
+    /* Trust graph inputs */
 
     /* Inbound attestations from distinct identities. */
     al_u32 inbound_attestations;
@@ -241,7 +242,7 @@ typedef struct al_potb_record {
     /* (B1) Challenges missed: systematic non-response penalises TGW. */
     al_u32 challenges_missed;
 
-    /* --- Network diversity ----------------------------------------------- */
+    /* Network diversity */
 
     /* Autonomous system number, 0 when unknown. */
     al_u32 asn;
@@ -249,13 +250,13 @@ typedef struct al_potb_record {
      * evadable with residential proxies and is one layer, not a defence. */
     al_u32 asn_peer_count;
 
-    /* --- Correlation ------------------------------------------------------ */
+    /* Correlation */
 
     /* Correlation score against the node's suspected group, Q32.32 and >= 0.
      * Computed by al_potb_correlation_score over a candidate group. */
     al_fixed correlation_score;
 
-    /* --- Behavioral profile change detection (B2) ------------------------- */
+    /* Behavioral profile change detection (B2) */
 
     /* Previous epoch's behavioral snapshot for detecting identity transfers.
      * A sharp change in these while the identifier stays constant signals
@@ -266,7 +267,7 @@ typedef struct al_potb_record {
     al_u32  prev_uptime_days;
     al_u32  profile_snapshot_day;  /* day the snapshot was taken */
 
-    /* --- Behavioral entropy (A3) ------------------------------------------ */
+    /* Behavioral entropy (A3) */
 
     /* Shannon entropy of the node's online/offline timing pattern over the
      * trailing window, Q32.32 in [0, log2(window_slots)]. High entropy means
@@ -274,13 +275,13 @@ typedef struct al_potb_record {
      * patterns typical of automated farms. */
     al_fixed behavioral_entropy;
 
-    /* --- Rewards ---------------------------------------------------------- */
+    /* Rewards */
 
     /* Voluntary operational bond. Affects only the bonded reward share, never
      * weight. */
     al_amount operational_bond;
 
-    /* --- Genesis bonus (B2) ----------------------------------------------- */
+    /* Genesis bonus (B2) */
 
     /* Remaining genesis bonus weight, diluted linearly from
      * genesis_bonus_initial to 0 over genesis_dilution_days. 0 for non-genesis
@@ -293,13 +294,12 @@ typedef struct al_potb_record {
  * weight zero forever. */
 AL_PUBLIC al_potb_record al_potb_record_init(const al_pubkey *identity);
 
-/* --------------------------------------------------------------------------
+/*
  * Network aggregates
- *
  * Values that can only be computed across the whole validator set, and which the
  * per-node scoring needs. Passed in explicitly so that scoring stays a pure
  * function and so a simulation can supply synthetic aggregates.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_potb_network_stats {
     al_u32 node_count;
@@ -313,9 +313,7 @@ typedef struct al_potb_network_stats {
     al_fixed total_weight;
 } al_potb_network_stats;
 
-/* --------------------------------------------------------------------------
- * Score components
- * -------------------------------------------------------------------------- */
+/* Score components */
 
 /* Correctness as a Q32.32 fraction. A node with no observations yields 1: it has
  * not been caught doing anything wrong, and its lack of history is already
@@ -397,9 +395,7 @@ AL_PUBLIC al_fixed al_potb_ndm(const al_potb_params *p, const al_potb_record *r,
  */
 AL_PUBLIC al_fixed al_potb_cod(const al_potb_record *r);
 
-/* --------------------------------------------------------------------------
- * Correlation
- * -------------------------------------------------------------------------- */
+/* Correlation */
 
 /* One node's contribution to a group's correlation, from the signals in the
  * specification: similar online patterns, similar TBS growth, registration in
@@ -413,9 +409,24 @@ AL_PUBLIC al_fixed al_potb_correlation_pair(const al_potb_record *a,
 AL_PUBLIC al_fixed al_potb_correlation_score(const al_potb_record *const *group,
                                    al_size count);
 
-/* --------------------------------------------------------------------------
- * Final weight
- * -------------------------------------------------------------------------- */
+/*
+ * Detect correlation groups and populate cluster fields on each record.
+ *
+ * Uses union-find over pairwise correlation scores: two nodes are merged into
+ * the same cluster when al_potb_correlation_pair() exceeds the threshold.
+ * After grouping, each record's cluster_size, inbound_from_cluster, and
+ * correlation_score are written back.
+ *
+ * `records` is an array of mutable records; `count` is the number of entries.
+ * The function reads only the identity and attestation fields to decide
+ * clustering, then writes back the cluster metadata.
+ *
+ * O(n^2) in the validator set, which runs once per epoch — acceptable for
+ * hundreds of validators, not per block.
+ */
+AL_PUBLIC void al_potb_detect_clusters(al_potb_record *records, al_size count);
+
+/* Final weight */
 
 /* Every component of one node's weight, kept together so a node can explain a
  * weight rather than just report it. Diagnosability matters here: an operator
@@ -473,9 +484,7 @@ AL_PUBLIC al_fixed al_potb_weight_effective(
     const al_potb_params *p, al_fixed raw_weight,
     al_fixed group_total_weight, al_fixed total_network_weight);
 
-/* --------------------------------------------------------------------------
- * Node levels
- * -------------------------------------------------------------------------- */
+/* Node levels */
 
 typedef enum al_potb_level {
     /* Stores the chain, validates locally, relays. Available immediately. */
@@ -493,9 +502,7 @@ AL_PUBLIC al_potb_level al_potb_level_of(const al_potb_params *p, const al_potb_
                                al_u32 now_day);
 AL_PUBLIC const char *al_potb_level_str(al_potb_level level);
 
-/* --------------------------------------------------------------------------
- * Appeal (B4)
- * -------------------------------------------------------------------------- */
+/* Appeal (B4) */
 
 /* An on-chain appeal against a COD/correlation penalty. Fixed cost, resolved
  * by the current-epoch committee within a defined SLA. */
@@ -515,7 +522,7 @@ typedef struct al_potb_appeal {
     al_hash256         committee_vote;  /* hash of the committee's vote    */
 } al_potb_appeal;
 
-/* --- Independence metrics (B5) -------------------------------------------- */
+/* Independence metrics (B5) */
 
 /* Metrics for transparent independence counting in genesis dilution. */
 typedef struct al_potb_independence_stats {
@@ -526,9 +533,7 @@ typedef struct al_potb_independence_stats {
     al_bool  alert_triggered;    /* AL_TRUE if gini > gini_max or hhi > hhi_max */
 } al_potb_independence_stats;
 
-/* --------------------------------------------------------------------------
- * Slashing
- * -------------------------------------------------------------------------- */
+/* Slashing */
 
 typedef enum al_potb_offence {
     /* A single miss, judged against the network median. */
@@ -567,9 +572,7 @@ AL_PUBLIC al_status al_potb_slash(const al_potb_params *p, al_potb_record *r,
                         const al_potb_network_stats *net,
                         al_potb_offence offence, al_u32 now_day);
 
-/* --------------------------------------------------------------------------
- * Anti-domination metrics (A1)
- * -------------------------------------------------------------------------- */
+/* Anti-domination metrics (A1) */
 
 /* Gini coefficient of a weight distribution. `weights` is sorted ascending;
  * `count` is the number of entries. Returns Q32.32 in [0, 1]. O(n log n). */
@@ -587,9 +590,7 @@ AL_PUBLIC void al_potb_independence_check(
     const al_potb_network_stats *net, al_u32 now_day,
     al_potb_independence_stats *out);
 
-/* --------------------------------------------------------------------------
- * Behavioral entropy (A3)
- * -------------------------------------------------------------------------- */
+/* Behavioral entropy (A3) */
 
 /* Update the behavioral entropy estimate from a new activity observation.
  * `activity_slot` is a discretised time-of-day index (0..slots-1). */
@@ -599,9 +600,7 @@ AL_PUBLIC void al_potb_entropy_observe(al_potb_record *r, al_u32 activity_slot,
 /* Current entropy value, exposed for diagnostics. */
 AL_PUBLIC al_fixed al_potb_entropy_value(const al_potb_record *r);
 
-/* --------------------------------------------------------------------------
- * Profile change detection (B2)
- * -------------------------------------------------------------------------- */
+/* Profile change detection (B2) */
 
 /* Score how much a node's behavioral profile has changed since the last
  * snapshot. Returns Q32.32 in [0, 1]: 0 = no change, 1 = complete change.
@@ -611,13 +610,12 @@ AL_PUBLIC al_fixed al_potb_profile_change_score(const al_potb_record *r);
 /* Take a new behavioral snapshot (call at epoch boundaries). */
 AL_PUBLIC void al_potb_profile_snapshot(al_potb_record *r, al_u32 now_day);
 
-/* --------------------------------------------------------------------------
+/*
  * Committee selection
- *
  * Members are drawn by VRF, weighted by al_potb_weight_total. The seed comes
  * from the epoch's commit-reveal (hardened by the VDF, if that branch is taken)
  * and is passed in rather than derived here.
- * -------------------------------------------------------------------------- */
+ */
 
 /* Cap on committee size, so selection needs no allocation. */
 #define AL_POTB_MAX_COMMITTEE 512
@@ -685,9 +683,7 @@ AL_PUBLIC AL_NODISCARD al_bool al_potb_committee_contains(const al_potb_committe
 /* Votes needed for BFT finality: floor(2n/3) + 1. */
 AL_PUBLIC al_u32 al_potb_quorum_threshold(al_u32 committee_size);
 
-/* --------------------------------------------------------------------------
- * Appeal (B4)
- * -------------------------------------------------------------------------- */
+/* Appeal (B4) */
 
 /* Fixed cost to file an appeal (prevents spam). */
 #define AL_POTB_APPEAL_COST 1000u
@@ -703,9 +699,7 @@ AL_PUBLIC AL_NODISCARD al_status al_potb_appeal_resolve(
     al_potb_appeal *appeal, al_u32 grant_votes, al_u32 total_votes,
     al_u32 now_day);
 
-/* --------------------------------------------------------------------------
- * Epoch seed
- * -------------------------------------------------------------------------- */
+/* Epoch seed */
 
 /*
  * Fold one participant's revealed contribution into the epoch seed.
@@ -744,9 +738,7 @@ AL_PUBLIC AL_NODISCARD al_bool al_potb_epoch_seed_check(const al_pubkey *contrib
 AL_PUBLIC void al_potb_epoch_seed_finalise(const al_hash256 *mixed, al_u64 epoch,
                                 const al_vdf_output *vdf, al_hash256 *out);
 
-/* --------------------------------------------------------------------------
- * Rewards
- * -------------------------------------------------------------------------- */
+/* Rewards */
 
 typedef struct al_potb_reward_split {
     al_amount flat;      /* equal share for participating honestly       */

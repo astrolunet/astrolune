@@ -32,6 +32,11 @@
  * Nothing outside core/crypto/ depends on the construction.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/crypto.h"
 
 #include <stdlib.h>
@@ -61,9 +66,7 @@
 #define AL_SK_SCALAR_OFFSET 0
 #define AL_SK_PUBKEY_OFFSET 32
 
-/* --------------------------------------------------------------------------
- * Backend identification
- * -------------------------------------------------------------------------- */
+/* Backend identification */
 
 al_crypto_backend_kind al_crypto_backend(void) {
     return AL_CRYPTO_BACKEND_DEV;
@@ -77,9 +80,7 @@ al_bool al_crypto_is_secure(void) {
     return AL_FALSE;
 }
 
-/* --------------------------------------------------------------------------
- * Keys
- * -------------------------------------------------------------------------- */
+/* Keys */
 
 /* Public key for a secret scalar. The only place the mapping is defined. */
 static void al_dev_pubkey_of_scalar(const al_u8 scalar[32], al_pubkey *out) {
@@ -129,9 +130,7 @@ al_status al_pubkey_from_seckey(const al_seckey *sk, al_pubkey *out) {
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * Signatures
- * -------------------------------------------------------------------------- */
+/* Signatures */
 
 /* The publicly recomputable half. */
 static void al_dev_sig_public(const al_pubkey *pk, const void *msg,
@@ -217,9 +216,7 @@ al_status al_verify_hash(const al_pubkey *pk, const al_hash256 *h,
     return al_dev_verify(pk, h->bytes, AL_HASH_SIZE, sig);
 }
 
-/* --------------------------------------------------------------------------
- * Key Exchange (toy: hash-based, NOT secure)
- * -------------------------------------------------------------------------- */
+/* Key Exchange (toy: hash-based, NOT secure) */
 
 /* Forward declaration - dev backend only, not in public headers. */
 static al_status dev_random_bytes(al_u8 *buf, al_size len) {
@@ -257,9 +254,7 @@ al_status al_kx_shared(const al_kx_keypair *local,
     return AL_OK;
 }
 
-/* --------------------------------------------------------------------------
- * AEAD (toy: HMAC-based, NOT secure — encrypt-then-MAC with truncated tag)
- * -------------------------------------------------------------------------- */
+/* AEAD (toy: HMAC-based, NOT secure — encrypt-then-MAC with truncated tag) */
 
 al_status al_aead_encrypt(const al_u8 key[AL_AEAD_KEY_SIZE],
                            const al_u8 nonce[AL_AEAD_NONCE_SIZE],

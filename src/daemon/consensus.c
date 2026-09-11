@@ -1,6 +1,70 @@
 /* Consensus state machine: checkpoint, pending block, votes, finalization. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
+
+/* Proposed-block window helpers (B7) */
+
+/* Find a slot in the ring buffer for a given height and round.
+ * Returns NULL if not found. */
+al_proposed_block *daemon_proposed_find(al_daemon *daemon,
+                                        al_height height, al_u32 round) {
+    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
+        al_proposed_block *slot = &daemon->proposed_window[i];
+        if (slot->in_use && slot->height == height && slot->round == round) {
+            return slot;
+        }
+    }
+    return NULL;
+}
+
+/* Find any slot for a given height (any round). */
+static al_proposed_block *daemon_proposed_find_height(al_daemon *daemon,
+                                                      al_height height) {
+    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
+        al_proposed_block *slot = &daemon->proposed_window[i];
+        if (slot->in_use && slot->height == height) {
+            return slot;
+        }
+    }
+    return NULL;
+}
+
+/* Allocate a new slot in the ring buffer. Evicts the oldest slot if full. */
+static al_proposed_block *daemon_proposed_alloc(al_daemon *daemon) {
+    /* First pass: find an empty slot. */
+    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
+        al_proposed_block *slot = &daemon->proposed_window[i];
+        if (!slot->in_use) {
+            return slot;
+        }
+    }
+    /* Evict the oldest slot (head of the ring). */
+    al_proposed_block *slot =
+        &daemon->proposed_window[daemon->proposed_window_head];
+    free(slot->data);
+    slot->data = NULL;
+    slot->size = 0u;
+    slot->in_use = AL_FALSE;
+    daemon->proposed_window_head =
+        (daemon->proposed_window_head + 1u) % AL_PROPOSED_BLOCK_WINDOW;
+    return slot;
+}
+
+/* Clear a specific slot. */
+static void daemon_proposed_clear_slot(al_proposed_block *slot) {
+    if (slot == NULL) return;
+    free(slot->data);
+    slot->data = NULL;
+    slot->size = 0u;
+    slot->in_use = AL_FALSE;
+}
+
+/* Checkpoint */
 
 al_status daemon_round_checkpoint_take(al_daemon *daemon) {
     if (daemon->round_checkpoint_valid) return AL_ERR_ALREADY_EXISTS;
@@ -37,10 +101,17 @@ al_status daemon_round_checkpoint_restore(al_daemon *daemon) {
     return AL_OK;
 }
 
+/* Pending block lifecycle (B7: ring buffer) */
+
 al_status daemon_pending_clear(al_daemon *daemon) {
-    free(daemon->pending_block);
-    daemon->pending_block = NULL;
-    daemon->pending_block_size = 0u;
+    /* Clear only the active slot (the one matching pending_height/round). */
+    if (daemon->pending_proposal) {
+        al_proposed_block *slot = daemon_proposed_find(
+            daemon, daemon->pending_height, daemon->consensus_round);
+        if (slot != NULL) {
+            daemon_proposed_clear_slot(slot);
+        }
+    }
     daemon->pending_proposal = AL_FALSE;
     daemon->local_prevote_sent = AL_FALSE;
     daemon->local_precommit_sent = AL_FALSE;
@@ -51,14 +122,27 @@ al_status daemon_pending_begin(al_daemon *daemon, al_bytes block,
                                const al_hash256 *block_hash,
                                al_height height,
                                al_u32 round) {
-    if (daemon->pending_proposal || block.data == NULL || block.len == 0u ||
-        block_hash == NULL) {
+    if (block.data == NULL || block.len == 0u || block_hash == NULL) {
         return AL_ERR_INVALID_ARG;
     }
-    daemon->pending_block = (al_u8 *)malloc(block.len);
-    if (daemon->pending_block == NULL) return AL_ERR_OUT_OF_MEMORY;
-    memcpy(daemon->pending_block, block.data, block.len);
-    daemon->pending_block_size = block.len;
+    /* Reject if we already have a proposal for this exact height+round. */
+    al_proposed_block *existing = daemon_proposed_find(daemon, height, round);
+    if (existing != NULL) {
+        return AL_ERR_ALREADY_EXISTS;
+    }
+    /* If we have a proposal for the same height but different round, the new
+     * one is a competing proposal from a view change — keep both. */
+    al_proposed_block *slot = daemon_proposed_alloc(daemon);
+    slot->data = (al_u8 *)malloc(block.len);
+    if (slot->data == NULL) return AL_ERR_OUT_OF_MEMORY;
+    memcpy(slot->data, block.data, block.len);
+    slot->size = block.len;
+    slot->block_hash = *block_hash;
+    slot->height = height;
+    slot->round = round;
+    slot->in_use = AL_TRUE;
+
+    /* Set as the active pending proposal. */
     daemon->pending_block_hash = *block_hash;
     daemon->pending_height = height;
     daemon->consensus_round = round;
@@ -72,6 +156,19 @@ al_status daemon_pending_begin(al_daemon *daemon, al_bytes block,
                      height, round, AL_CONSENSUS_PRECOMMIT,
                      block_hash, &daemon->committee_hash);
     return AL_OK;
+}
+
+/* Get the active pending block bytes. */
+static al_bytes daemon_pending_block_bytes(al_daemon *daemon) {
+    if (!daemon->pending_proposal) {
+        return al_bytes_make(NULL, 0u);
+    }
+    al_proposed_block *slot = daemon_proposed_find(
+        daemon, daemon->pending_height, daemon->consensus_round);
+    if (slot == NULL || slot->data == NULL) {
+        return al_bytes_make(NULL, 0u);
+    }
+    return al_bytes_make(slot->data, slot->size);
 }
 
 al_status daemon_emit_vote(al_daemon *daemon,
@@ -137,8 +234,7 @@ al_status daemon_finalize_pending(
                     &daemon->pending_block_hash)) {
         return AL_ERR_CONSENSUS_VIOLATION;
     }
-    al_bytes block = al_bytes_make(daemon->pending_block,
-                                   daemon->pending_block_size);
+    al_bytes block = daemon_pending_block_bytes(daemon);
     AL_TRY(al_node_accept_encoded_block(&daemon->node, block));
     al_size certificate_size = 0u;
     al_status status = al_finality_certificate_encode(
@@ -205,6 +301,16 @@ al_status daemon_finalize_pending(
                    (unsigned long long)certificate->height,
                    (unsigned)certificate->vote_count);
     DAEMON_LOG(daemon, message);
+
+    /* Record finalized height and clear all slots at this height. */
+    daemon->finalized_height = certificate->height;
+    for (al_u32 i = 0u; i < AL_PROPOSED_BLOCK_WINDOW; ++i) {
+        al_proposed_block *slot = &daemon->proposed_window[i];
+        if (slot->in_use && slot->height <= certificate->height) {
+            daemon_proposed_clear_slot(slot);
+        }
+    }
+
     AL_TRY(daemon_pending_clear(daemon));
     daemon->consensus_round = 0u;
     daemon->round_deadline_ms =

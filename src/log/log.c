@@ -1,5 +1,10 @@
 /* Structured logging implementation. See log.h for the public API. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/log.h"
 
 #include <stdio.h>

@@ -1,3 +1,9 @@
+
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_TEST_STATE_FIXTURE_H
 #define ASTROLUNE_TEST_STATE_FIXTURE_H
 

@@ -6,6 +6,11 @@
  * cross-file function calls in one place.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_INTERNAL_H
 #define ASTROLUNE_INTERNAL_H
 
@@ -35,6 +40,20 @@
 #define PROPOSER_KEY_FILE  "proposer.key"
 #define PROPOSER_SEED_SIZE 32u
 
+/* Proposed-block window (B7): a (height, round)-keyed ring buffer so the daemon
+ * can hold multiple unfinalized candidates across rounds and reject
+ * late/duplicate proposals for already-finalized heights. */
+#define AL_PROPOSED_BLOCK_WINDOW 16u
+
+typedef struct al_proposed_block {
+    al_u8    *data;           /* heap-allocated encoded block */
+    al_size   size;
+    al_hash256 block_hash;
+    al_height height;
+    al_u32    round;
+    al_bool   in_use;
+} al_proposed_block;
+
 struct al_daemon {
     al_daemon_config config;
 
@@ -60,8 +79,9 @@ struct al_daemon {
     al_hash256            committee_hash;
     al_vote_set           prevotes;
     al_vote_set           precommits;
-    al_u8                *pending_block;
-    al_size               pending_block_size;
+    al_proposed_block     proposed_window[AL_PROPOSED_BLOCK_WINDOW];
+    al_u32                proposed_window_head;  /* next slot to write */
+    al_height             finalized_height;      /* last finalized height */
     al_hash256            pending_block_hash;
     al_height             pending_height;
     al_u32                consensus_round;
@@ -129,6 +149,8 @@ al_status daemon_finalize_pending(al_daemon *daemon,
                                   const al_finality_certificate *received);
 al_status daemon_consensus_advance(al_daemon *daemon);
 al_status daemon_consensus_prevote(al_daemon *daemon);
+al_proposed_block *daemon_proposed_find(al_daemon *daemon,
+                                        al_height height, al_u32 round);
 
 /* p2p_handlers.c — P2P callbacks */
 al_bool   daemon_on_transaction(void *userdata, al_bytes encoded);

@@ -5,6 +5,11 @@
  * See astrolune/crypto.h for why it is not truncated to 20 bytes.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/crypto.h"
 
 #include "internal/common.h"

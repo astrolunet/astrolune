@@ -19,6 +19,11 @@
  * an arena pointer across block boundaries.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_ARENA_H
 #define ASTROLUNE_ARENA_H
 

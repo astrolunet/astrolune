@@ -7,18 +7,22 @@
  * of "until it works".
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/potb.h"
 
 #include "internal/common.h"
 
-/* --------------------------------------------------------------------------
+/*
  * Deterministic draw
- *
  * A hash chain, not a random number generator. The distinction matters: every
  * node must produce the same sequence from the same seed, so there is no state
  * that could differ between machines - the chain is a pure function of (seed,
  * height, counter).
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_potb_chain {
     al_hash256 seed;
@@ -93,9 +97,7 @@ static al_u64 al_potb_chain_below(al_potb_chain *c, al_u64 bound) {
 #define AL_POTB_DOMAIN_EVICT  0x5000000000000000ull
 #define AL_POTB_DOMAIN_REFILL 0xa000000000000000ull
 
-/* --------------------------------------------------------------------------
- * Eligibility
- * -------------------------------------------------------------------------- */
+/* Eligibility */
 
 /*
  * The weight a candidate is drawn with, or 0 if it may not be drawn at all.
@@ -127,9 +129,7 @@ static al_fixed al_potb_draw_weight(const al_potb_params *p,
     return (w > 0) ? w : 0;
 }
 
-/* --------------------------------------------------------------------------
- * Weighted sampling without replacement
- * -------------------------------------------------------------------------- */
+/* Weighted sampling without replacement */
 
 /* One eligible candidate, as the sampler sees it. */
 typedef struct al_potb_slot {
@@ -245,9 +245,7 @@ static void al_potb_pool_exclude(al_potb_slot *pool, al_size *pool_len,
     *pool_len = n;
 }
 
-/* --------------------------------------------------------------------------
- * Selection
- * -------------------------------------------------------------------------- */
+/* Selection */
 
 al_status al_potb_committee_select(const al_potb_params *p,
                                   const al_potb_record *const *candidates,
@@ -324,9 +322,7 @@ al_status al_potb_committee_select(const al_potb_params *p,
     return (out->size > 0u) ? AL_OK : AL_ERR_NOT_FOUND;
 }
 
-/* --------------------------------------------------------------------------
- * Rotation
- * -------------------------------------------------------------------------- */
+/* Rotation */
 
 /* Find a candidate record by identity. Linear, and called at most once per
  * rotated seat, so at most ~10% of 512 per block. */
@@ -495,9 +491,7 @@ al_bool al_potb_committee_contains(const al_potb_committee *c,
     return AL_FALSE;
 }
 
-/* --------------------------------------------------------------------------
- * Epoch seed
- * -------------------------------------------------------------------------- */
+/* Epoch seed */
 
 void al_potb_epoch_seed_commit(const al_pubkey *contributor,
                               const al_hash256 *reveal, al_hash256 *out) {
@@ -585,9 +579,7 @@ void al_potb_epoch_seed_finalise(const al_hash256 *mixed, al_u64 epoch,
     al_hash_tagged(AL_TAG_EPOCH_SEED, buf, len, out);
 }
 
-/* --------------------------------------------------------------------------
- * Rewards
- * -------------------------------------------------------------------------- */
+/* Rewards */
 
 /*
  * floor(amount * bp / 10000) with no overflow and no 128-bit type.
@@ -700,7 +692,7 @@ void al_potb_reward_for(const al_potb_params *p, al_amount block_reward,
         return;
     }
 
-    /* --- flat: an equal share of the flat bucket ------------------------- */
+    /* flat: an equal share of the flat bucket */
     al_amount flat_bucket = al_bp_of(block_reward, p->reward_flat_bp);
     /* Integer division, so the remainder is not paid out. That is deliberate:
      * the leftover is at most (committee_size - 1) base units per block, and
@@ -709,7 +701,7 @@ void al_potb_reward_for(const al_potb_params *p, al_amount block_reward,
      * burned instead, and the supply schedule accounts for it. */
     out->flat = flat_bucket / (al_amount)committee->size;
 
-    /* --- weighted: share of the weighted bucket, by selection weight ----- */
+    /* weighted: share of the weighted bucket, by selection weight */
     al_fixed total_weight = 0;
     for (al_u32 i = 0u; i < committee->size; ++i) {
         total_weight = al_fixed_add(total_weight, committee->weights[i]);
@@ -721,7 +713,7 @@ void al_potb_reward_for(const al_potb_params *p, al_amount block_reward,
             al_bp_of(block_reward, p->reward_weighted_bp), share);
     }
 
-    /* --- bonded: share of the bonded bucket, by bond -------------------- */
+    /* bonded: share of the bonded bucket, by bond */
     /*
      * The bond buys a share of this bucket and nothing else. It is not in the
      * weight formula, it is not in the selection draw, and it is not in the
@@ -742,7 +734,7 @@ void al_potb_reward_for(const al_potb_params *p, al_amount block_reward,
 
     out->total = out->flat + out->weighted + out->bonded;
 
-    /* --- cap ------------------------------------------------------------- */
+    /* cap */
     /* No node may take more than reward_max_multiple times the flat share. This
      * is the last line of defence on reward concentration: even if the weight
      * calculation is wrong, or a cluster slips past every heuristic, the payout

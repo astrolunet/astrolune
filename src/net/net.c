@@ -1,5 +1,10 @@
 /* Socket plumbing for the P2P transport. See net.h for the contract. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "net.h"
 
 #include <stdio.h>

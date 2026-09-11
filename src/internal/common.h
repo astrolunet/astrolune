@@ -5,6 +5,11 @@
  * here: compiler intrinsics, atomics, and the debug assertion macro.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_INTERNAL_COMMON_H
 #define ASTROLUNE_INTERNAL_COMMON_H
 
@@ -17,14 +22,13 @@
 #  include <intrin.h>
 #endif
 
-/* --------------------------------------------------------------------------
+/*
  * Assertions
- *
  * AL_ASSERT documents an invariant the code relies on and is compiled out of
  * release builds. It is never used to validate untrusted input - a malformed
  * block from the network must produce a status code, not a crash, so those
  * checks are plain `if` statements that stay in every build.
- * -------------------------------------------------------------------------- */
+ */
 
 #if defined(NDEBUG)
 #  define AL_ASSERT(cond) ((void)0)
@@ -33,13 +37,12 @@
 #  define AL_ASSERT(cond) assert(cond)
 #endif
 
-/* --------------------------------------------------------------------------
+/*
  * Byte order
- *
  * Astrolune serialises little-endian everywhere. These helpers make the
  * conversion explicit at every boundary instead of relying on the host's
  * layout, so the encoding is identical on a big-endian machine.
- * -------------------------------------------------------------------------- */
+ */
 
 static AL_FORCEINLINE al_u16 al_load_le16(const al_u8 *p) {
     return (al_u16)((al_u16)p[0] | ((al_u16)p[1] << 8));
@@ -88,13 +91,12 @@ static AL_FORCEINLINE void al_store_be64(al_u8 *p, al_u64 v) {
     al_store_be32(p + 4, (al_u32)(v & 0xffffffffu));
 }
 
-/* --------------------------------------------------------------------------
+/*
  * Bit operations
- *
  * Wrapped rather than used directly because the intrinsics differ per compiler
  * and the fallbacks must produce identical results - these feed the fixed-point
  * logarithm, which is consensus-visible.
- * -------------------------------------------------------------------------- */
+ */
 
 /* Rotate right, 32-bit. The compiler recognises this idiom and emits ROR. */
 static AL_FORCEINLINE al_u32 al_rotr32(al_u32 v, unsigned n) {
@@ -120,13 +122,12 @@ static AL_FORCEINLINE unsigned al_bit_width64(al_u64 v) {
 #endif
 }
 
-/* --------------------------------------------------------------------------
+/*
  * Checked arithmetic
- *
  * The VM's arithmetic opcodes trap on overflow rather than wrapping, so these
  * return a flag instead of a value. Written against the compiler builtins where
  * available because the portable form is easy to get wrong.
- * -------------------------------------------------------------------------- */
+ */
 
 static AL_FORCEINLINE al_bool al_add_overflow_u64(al_u64 a, al_u64 b,
                                                   al_u64 *out) {
@@ -160,9 +161,7 @@ static AL_FORCEINLINE al_bool al_mul_overflow_u64(al_u64 a, al_u64 b,
 #endif
 }
 
-/* --------------------------------------------------------------------------
- * Small utilities
- * -------------------------------------------------------------------------- */
+/* Small utilities */
 
 #define AL_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define AL_MAX(a, b) (((a) > (b)) ? (a) : (b))

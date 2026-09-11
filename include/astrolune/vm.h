@@ -1,5 +1,10 @@
 /* astrolune/vm.h - canonical ALVM containers and the v1 interpreter. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_VM_H
 #define ASTROLUNE_VM_H
 

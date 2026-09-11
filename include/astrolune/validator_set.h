@@ -13,6 +13,11 @@
  *   Key: "registration_height:<pubkey>" -> Value: LE u64 height
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_VALIDATOR_SET_H
 #define ASTROLUNE_VALIDATOR_SET_H
 
@@ -28,9 +33,7 @@ AL_EXTERN_C_BEGIN
  * registered. */
 #define AL_VALIDATOR_ACTIVATION_DELAY 1u
 
-/* --------------------------------------------------------------------------
- * Storage keys
- * -------------------------------------------------------------------------- */
+/* Storage keys */
 
 /* Maximum encoded size of a validator record key. */
 #define AL_VALIDATOR_KEY_MAX 96u
@@ -42,9 +45,7 @@ al_size al_validator_storage_key(const al_pubkey *pk, char *buf, al_size cap);
 al_size al_validator_registration_height_key(const al_pubkey *pk, char *buf,
                                              al_size cap);
 
-/* --------------------------------------------------------------------------
- * On-chain validator set operations
- * -------------------------------------------------------------------------- */
+/* On-chain validator set operations */
 
 /* Load all validators from on-chain state into the candidate array.
  * Returns AL_OK on success, AL_ERR_NOT_FOUND if no validators are registered. */

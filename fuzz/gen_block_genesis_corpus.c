@@ -10,6 +10,11 @@
  * genesis (selector byte 0x01, empty allocation table).
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/block.h"
 
 #include <stdio.h>

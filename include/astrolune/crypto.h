@@ -33,6 +33,11 @@
  * =========================================================================
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_CRYPTO_H
 #define ASTROLUNE_CRYPTO_H
 
@@ -42,9 +47,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * Backend identification
- * -------------------------------------------------------------------------- */
+/* Backend identification */
 
 typedef enum al_crypto_backend_kind {
     /* Deterministic, insecure, for development and tests only. */
@@ -63,9 +66,7 @@ AL_PUBLIC const char *al_crypto_backend_name(void);
  * backend alone is insufficient while VRF/VDF remain development primitives. */
 AL_PUBLIC AL_NODISCARD al_bool al_crypto_is_secure(void);
 
-/* --------------------------------------------------------------------------
- * Keys
- * -------------------------------------------------------------------------- */
+/* Keys */
 
 typedef struct al_keypair {
     al_pubkey pk;
@@ -104,9 +105,7 @@ AL_PUBLIC AL_NODISCARD al_bool al_address_eq(const al_address *a, const al_addre
 AL_PUBLIC AL_NODISCARD al_bool al_address_is_zero(const al_address *a);
 AL_PUBLIC int al_address_cmp(const al_address *a, const al_address *b);
 
-/* --------------------------------------------------------------------------
- * Human-readable address text
- * -------------------------------------------------------------------------- */
+/* Human-readable address text */
 
 /*
  * Bech32 text form of an address, "al1…". Checksummed and unambiguous; this
@@ -134,9 +133,7 @@ AL_PUBLIC AL_NODISCARD al_status al_address_from_bech32(const char *text,
 AL_PUBLIC void al_address_for_contract(const al_address *deployer, al_nonce nonce,
                              const al_hash256 *code_hash, al_address *out);
 
-/* --------------------------------------------------------------------------
- * Signatures
- * -------------------------------------------------------------------------- */
+/* Signatures */
 
 /* AL_CRYPTO_INSECURE with the dev backend. */
 AL_PUBLIC AL_NODISCARD al_status al_sign(const al_seckey *sk, al_bytes message,
@@ -154,40 +151,37 @@ AL_PUBLIC AL_NODISCARD al_status al_sign_hash(const al_seckey *sk, const al_hash
 AL_PUBLIC AL_NODISCARD al_status al_verify_hash(const al_pubkey *pk, const al_hash256 *h,
                                       const al_sig *sig);
 
-/* --------------------------------------------------------------------------
+/*
  * Verifiable Random Function — REMOVED
- *
  * VRF was a development primitive for committee selection. It has been removed
  * from the deployment path because the dev backend's VRF is deterministic and
  * predictable to key holders, providing no real unpredictability. The sodium
  * backend does not provide a production VRF either. Committee selection uses a
  * hash-chain seed instead.
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_VRF_PROOF_SIZE 80
 typedef struct al_vrf_proof { al_u8 bytes[AL_VRF_PROOF_SIZE]; } al_vrf_proof;
 
-/* --------------------------------------------------------------------------
+/*
  * Verifiable Delay Function — REMOVED
- *
  * VDF was a development primitive for epoch seed hardening. It has been removed
  * because no production VDF construction (Wesolowski/Pietrzak over class
  * groups) is implemented. The epoch seed function accepts an optional VDF
  * output but gracefully handles NULL.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_vdf_output {
     al_hash256 value;
     al_u64     iterations;
 } al_vdf_output;
 
-/* --------------------------------------------------------------------------
+/*
  * Key Exchange (for P2P transport encryption)
- *
  * X25519 key exchange: both sides generate an ephemeral keypair, exchange
  * public keys, and compute a shared secret. The shared secret is then used
  * as input to AEAD encryption for all subsequent P2P frames.
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_KX_PUBLIC_KEY_SIZE  32u
 #define AL_KX_SECRET_KEY_SIZE  32u
@@ -209,13 +203,12 @@ AL_PUBLIC AL_NODISCARD al_status al_kx_shared(
     const al_u8 remote_pk[AL_KX_PUBLIC_KEY_SIZE],
     al_u8 shared_out[AL_KX_SHARED_KEY_SIZE]);
 
-/* --------------------------------------------------------------------------
+/*
  * Authenticated Encryption with Associated Data (for P2P frames)
- *
  * AEAD using XChaCha20-Poly1305 (libsodium). Provides confidentiality and
  * integrity for P2P frame payloads. The 24-byte nonce must be unique per
  * (key, message) pair; we use a per-peer counter to guarantee uniqueness.
- * -------------------------------------------------------------------------- */
+ */
 
 #define AL_AEAD_NONCE_SIZE    24u
 #define AL_AEAD_KEY_SIZE      32u
@@ -240,9 +233,7 @@ AL_PUBLIC AL_NODISCARD al_status al_aead_decrypt(
     const al_u8 *ciphertext, al_size ciphertext_len,
     al_u8 *plaintext_out, al_size *plaintext_len);
 
-/* --------------------------------------------------------------------------
- * Utilities
- * -------------------------------------------------------------------------- */
+/* Utilities */
 
 /* Overwrite a buffer, resistant to being optimised away. Use for key material
  * before it goes out of scope. */

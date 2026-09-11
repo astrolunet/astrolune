@@ -6,13 +6,16 @@
  * are all exercised end to end.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "altest.h"
 #include "json.h"
 #include "server.h"
 
-/* ------------------------------------------------------------------ */
-/* JSON parser                                                         */
-/* ------------------------------------------------------------------ */
+/* JSON parser */
 
 AL_TEST(json_parse_scalars) {
     al_json_value *value = NULL;
@@ -84,9 +87,7 @@ AL_TEST(json_rejects_malformed_input) {
     AL_CHECK(value == NULL);
 }
 
-/* ------------------------------------------------------------------ */
-/* JSON writer                                                         */
-/* ------------------------------------------------------------------ */
+/* JSON writer */
 
 AL_TEST(json_writer_shapes) {
     al_json_writer writer;
@@ -107,9 +108,7 @@ AL_TEST(json_writer_shapes) {
     al_json_writer_free(&writer);
 }
 
-/* ------------------------------------------------------------------ */
-/* RPC server over loopback                                            */
-/* ------------------------------------------------------------------ */
+/* RPC server over loopback */
 
 static al_status counting_handler(void *userdata,
                                   const al_json_value *request,

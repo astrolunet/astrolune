@@ -1,5 +1,10 @@
 /* P2P callbacks: transaction/block ingestion and peer lifecycle. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
 al_bool daemon_on_transaction(void *userdata, al_bytes encoded) {

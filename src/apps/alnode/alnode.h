@@ -2,6 +2,11 @@
  * alnode.h — shared types and declarations for the alnode CLI modules.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ALNODE_H
 #define ALNODE_H
 

@@ -13,6 +13,11 @@
  *   p2p.c   - the peer manager: handshakes, gossip, dedup, timeouts
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_NET_NET_H
 #define ASTROLUNE_NET_NET_H
 
@@ -37,9 +42,7 @@
 
 AL_EXTERN_C_BEGIN
 
-/* --------------------------------------------------------------------------
- * Process-wide initialisation
- * -------------------------------------------------------------------------- */
+/* Process-wide initialisation */
 
 /* Must succeed once before any socket call. Windows requires WSAStartup;
  * other platforms do nothing. Safe to call more than once. */
@@ -64,12 +67,11 @@ typedef struct al_socket {
 
 AL_NODISCARD al_bool al_socket_is_open(al_socket s);
 
-/* --------------------------------------------------------------------------
+/*
  * Listeners and connections
- *
  * Every socket returned here is non-blocking; callers drive them through
  * al_net_select and never block on I/O.
- * -------------------------------------------------------------------------- */
+ */
 
 /* Bind and listen. `host` may be NULL for any-interface (INADDR_ANY). */
 AL_NODISCARD al_status al_net_listen(const char *host, al_u16 port,
@@ -109,12 +111,11 @@ AL_NODISCARD al_status al_net_recv(al_socket s, al_bytes_mut buffer,
                                    al_size *received);
 AL_NODISCARD al_status al_net_send(al_socket s, al_bytes data, al_size *sent);
 
-/* --------------------------------------------------------------------------
+/*
  * Polling
- *
  * Thin wrappers over select(). Sets are rebuilt on every tick, which is the
  * right trade at peer counts a few hundred and keeps the API platform-free.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_net_set {
     fd_set   native;

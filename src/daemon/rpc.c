@@ -1,10 +1,13 @@
 /* JSON-RPC surface: all RPC method handlers. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "internal.h"
 
-/* ------------------------------------------------------------------ */
-/* RPC helpers                                                         */
-/* ------------------------------------------------------------------ */
+/* RPC helpers */
 
 static const al_json_value *rpc_params(const al_json_value *request) {
     const al_json_value *params = al_json_get(request, "params");
@@ -283,9 +286,7 @@ static al_status rpc_dry_run_call(al_daemon *daemon,
     return AL_OK;
 }
 
-/* ------------------------------------------------------------------ */
-/* Main RPC dispatch                                                   */
-/* ------------------------------------------------------------------ */
+/* Main RPC dispatch */
 
 al_status daemon_rpc_handler(void *userdata,
                              const al_json_value *request,

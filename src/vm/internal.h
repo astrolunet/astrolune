@@ -3,6 +3,11 @@
  * vm.c. Not part of the public API.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_VM_INTERNAL_H
 #define ASTROLUNE_VM_INTERNAL_H
 

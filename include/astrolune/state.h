@@ -7,6 +7,11 @@
  * engine while preserving atomic rollback through immutable roots.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_STATE_H
 #define ASTROLUNE_STATE_H
 

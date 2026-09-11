@@ -6,6 +6,11 @@
  * Intentionally minimal — enough for node configuration, not a full spec.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_TOML_H
 #define ASTROLUNE_TOML_H
 

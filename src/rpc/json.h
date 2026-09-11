@@ -13,6 +13,11 @@
  *   - the writer is a growable byte buffer with correct string escaping.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef ASTROLUNE_RPC_JSON_H
 #define ASTROLUNE_RPC_JSON_H
 
@@ -61,10 +66,10 @@ const al_json_value *al_json_get(const al_json_value *object, const char *key);
 AL_NODISCARD al_bool al_json_as_u64(const al_json_value *value, al_u64 *out);
 AL_NODISCARD const char *al_json_as_string(const al_json_value *value);
 
-/* --- Writer -----------------------------------------------------------------
+/* Writer
  * Growable output buffer. Every append can fail only through allocation;
  * failures latch into status and surface at al_json_writer_finish.
- * -------------------------------------------------------------------------- */
+ */
 
 typedef struct al_json_writer {
     char    *data;

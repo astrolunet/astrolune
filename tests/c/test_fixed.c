@@ -9,6 +9,11 @@
  * comment so a future change that shifts it cannot pass unnoticed.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/fixed.h"
 
 #include "altest.h"

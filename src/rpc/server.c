@@ -1,5 +1,10 @@
 /* JSON-RPC over HTTP/1.1. See server.h for the contract. */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "server.h"
 #include "internal/common.h"
 
@@ -67,7 +72,7 @@ static al_status parse_content_length(const char *request, al_size limit,
     return AL_OK;
 }
 
-/* --- Client lifecycle ------------------------------------------------------------ */
+/* Client lifecycle */
 
 static void client_init(al_rpc_client *client) {
     al_memzero(client, sizeof(*client));
@@ -95,7 +100,7 @@ static void client_send_all(al_rpc_client *client, const char *text) {
     }
 }
 
-/* --- Bearer token authentication ----------------------------------------------- */
+/* Bearer token authentication */
 
 static al_bool check_bearer_token(const al_rpc_server *server,
                                   const char *headers, al_size headers_len) {
@@ -143,7 +148,7 @@ static al_bool check_bearer_token(const al_rpc_server *server,
     return (diff == 0u) ? AL_TRUE : AL_FALSE;
 }
 
-/* --- Request dispatch ------------------------------------------------------------ */
+/* Request dispatch */
 
 /*
  * Assemble the JSON-RPC envelope around what the handler produced. The id is
@@ -321,7 +326,7 @@ static void client_readable(al_rpc_server *server, al_size index) {
     }
 }
 
-/* --- Public API ---------------------------------------------------------------------- */
+/* Public API */
 
 al_status al_rpc_server_init(al_rpc_server *server, const char *host,
                              al_u16 port, al_rpc_handler_fn handler,

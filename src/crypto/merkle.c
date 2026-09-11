@@ -26,6 +26,11 @@
  *     block can be mutated without changing its header.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/hash.h"
 
 #include "internal/common.h"

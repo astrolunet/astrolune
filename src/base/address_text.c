@@ -10,6 +10,11 @@
  * a mixed-case string is a typo, not a format.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/crypto.h"
 #include "internal/common.h"
 

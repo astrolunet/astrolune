@@ -8,6 +8,11 @@
  * geometric step.
  */
 
+/*
+ * Copyright (c) 2026 Astrolune contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "astrolune/arena.h"
 
 #include "internal/common.h"
