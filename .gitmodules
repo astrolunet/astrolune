@@ -3,4 +3,4 @@
 	url = https://github.com/astrolunet/trocto.git
 [submodule "docs"]
 	path = docs
-	url = https://github.com/astrolunet/astrolune-docs.git
+	url = https://github.com/astrolunet/docs.git
