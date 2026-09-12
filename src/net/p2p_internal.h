@@ -75,9 +75,12 @@ void handle_hello(al_p2p *network, al_p2p_peer *peer,
                   al_bytes payload, al_u64 now_ms);
 void handle_key_exchange(al_p2p *network, al_p2p_peer *peer,
                          al_bytes payload);
+void handle_addresses(al_p2p *network, al_p2p_peer *peer,
+                      al_bytes payload);
+void pex_send_known_peers(al_p2p *network, al_p2p_peer *peer);
 void dispatch_frame(al_p2p *network, al_p2p_peer *peer,
-                    al_wire_type type, al_bytes payload, al_u64 now_ms);
-
+                    al_wire_type type, al_bytes payload,
+                    al_u64 now_ms);
 /* p2p_io.c — socket I/O and frame assembly */
 void feed_bytes(al_p2p *network, al_size index, al_bytes chunk,
                 al_u64 now_ms);

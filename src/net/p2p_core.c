@@ -228,6 +228,12 @@ void al_p2p_close(al_p2p *network) {
     network->reply_capacity = 0u;
 }
 
+al_status al_p2p_set_identity(al_p2p *network, const al_keypair *identity) {
+    if (network == NULL || identity == NULL) return AL_ERR_INVALID_ARG;
+    network->identity = *identity;
+    return AL_OK;
+}
+
 al_status al_p2p_dial(al_p2p *network, const char *host, al_u16 port) {
     if (network == NULL || host == NULL) return AL_ERR_INVALID_ARG;
     if (network->peer_count >= network->config.max_peers) {
@@ -385,4 +391,39 @@ al_size al_p2p_ready_peers(const al_p2p *network) {
         if (network->peers[i].state == AL_P2P_READY) ready++;
     }
     return ready;
+}
+
+/* PEX: Periodically send known peer addresses to a random subset of peers.
+ * This enables peer discovery without a DHT by having nodes share their
+ * peer tables with each other. The function should be called periodically
+ * (e.g., every 60 seconds) from the daemon's event loop. */
+void al_p2p_broadcast_peers(al_p2p *network) {
+    if (network == NULL || network->peer_count <= 1u) return;
+    if (!network->config.require_identity) return;
+    
+    /* Collect indices of ready peers. */
+    al_size ready_indices[AL_P2P_MAX_PEERS];
+    al_size ready_count = 0u;
+    for (al_size i = 0u; i < network->peer_count; ++i) {
+        if (network->peers[i].state == AL_P2P_READY) {
+            ready_indices[ready_count++] = i;
+        }
+    }
+    if (ready_count == 0u) return;
+    
+    /* Select up to 3 random peers using simple LCG. */
+    al_size max_targets = (ready_count < 3u) ? ready_count : 3u;
+    al_u64 seed = (al_u64)al_net_now_ms();
+    for (al_size i = 0u; i < max_targets; ++i) {
+        seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+        al_size j = i + (al_size)(seed % (ready_count - i));
+        if (j >= ready_count) j = i;
+        
+        /* Swap selected peer to position i. */
+        al_size tmp = ready_indices[i];
+        ready_indices[i] = ready_indices[j];
+        ready_indices[j] = tmp;
+        
+        pex_send_known_peers(network, &network->peers[ready_indices[i]]);
+    }
 }

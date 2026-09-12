@@ -46,6 +46,7 @@ al_u32 al_wire_type_max_payload(al_wire_type type) {
     case AL_WIRE_TX:           return AL_WIRE_MAX_PAYLOAD_TX;
     case AL_WIRE_GET_BLOCKS:   return AL_WIRE_MAX_PAYLOAD_GET_BLOCKS;
     case AL_WIRE_KEY_EXCHANGE: return AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE;
+    case AL_WIRE_ADDRESSES:    return AL_WIRE_MAX_PAYLOAD_ADDRESSES;
     /* BLOCK, BLOCKS, PROPOSAL, VOTE, FINALITY, EVIDENCE may legitimately
      * approach the global ceiling; rely on AL_WIRE_MAX_PAYLOAD alone. */
     case AL_WIRE_BLOCK:
@@ -80,6 +81,7 @@ void al_wire_hello_encode(al_writer *writer, const al_wire_hello *hello) {
     al_writer_hash(writer, &hello->genesis);
     al_writer_hash(writer, &hello->head);
     al_writer_u64(writer, hello->height);
+    al_writer_raw(writer, hello->identity.bytes, AL_PUBKEY_SIZE);
 }
 
 al_status al_wire_hello_decode(al_bytes payload, al_wire_hello *out) {
@@ -91,6 +93,7 @@ al_status al_wire_hello_decode(al_bytes payload, al_wire_hello *out) {
     al_reader_hash(&reader, &out->genesis);
     al_reader_hash(&reader, &out->head);
     out->height = al_reader_u64(&reader);
+    al_reader_bytes(&reader, out->identity.bytes, AL_PUBKEY_SIZE);
     AL_TRY(al_reader_finish(&reader));
     if (out->protocol_version != AL_WIRE_PROTOCOL_VERSION) {
         return AL_ERR_OUT_OF_RANGE;
@@ -328,13 +331,53 @@ al_status al_wire_evidence_decode(al_bytes payload, al_wire_evidence *out) {
 void al_wire_key_exchange_encode(al_writer *writer,
                                  const al_wire_key_exchange *kx) {
     al_writer_raw(writer, kx->ephemeral_pk, AL_KX_PUBLIC_KEY_SIZE);
+    al_writer_raw(writer, kx->signature.bytes, AL_SIGNATURE_SIZE);
 }
 
 al_status al_wire_key_exchange_decode(al_bytes payload,
                                        al_wire_key_exchange *out) {
     if (out == NULL) return AL_ERR_INVALID_ARG;
     al_memzero(out, sizeof(*out));
-    if (payload.len < AL_KX_PUBLIC_KEY_SIZE) return AL_ERR_TRUNCATED;
+    if (payload.len < AL_KX_PUBLIC_KEY_SIZE + AL_SIGNATURE_SIZE) {
+        return AL_ERR_TRUNCATED;
+    }
     al_memcpy(out->ephemeral_pk, payload.data, AL_KX_PUBLIC_KEY_SIZE);
+    al_memcpy(out->signature.bytes, payload.data + AL_KX_PUBLIC_KEY_SIZE,
+              AL_SIGNATURE_SIZE);
+    return AL_OK;
+}
+
+/* ADDRESSES (PEX) */
+
+void al_wire_addresses_encode(al_writer *writer,
+                              const al_wire_addresses *addrs) {
+    al_writer_u8(writer, addrs->count);
+    for (al_u8 i = 0u; i < addrs->count; ++i) {
+        al_size len = strlen(addrs->addrs[i].endpoint);
+        if (len > AL_WIRE_MAX_ENDPOINT_LEN) len = AL_WIRE_MAX_ENDPOINT_LEN;
+        al_writer_u8(writer, (al_u8)len);
+        al_writer_raw(writer, addrs->addrs[i].endpoint, len);
+        al_writer_u16(writer, addrs->addrs[i].listen_port);
+    }
+}
+
+al_status al_wire_addresses_decode(al_bytes payload,
+                                    al_wire_addresses *out) {
+    if (out == NULL) return AL_ERR_INVALID_ARG;
+    al_memzero(out, sizeof(*out));
+    al_reader reader;
+    al_reader_init(&reader, payload);
+    out->count = al_reader_u8(&reader);
+    if (out->count > AL_WIRE_MAX_PEX_ADDRS) {
+        out->count = AL_WIRE_MAX_PEX_ADDRS;
+    }
+    for (al_u8 i = 0u; i < out->count; ++i) {
+        al_u8 len = al_reader_u8(&reader);
+        if (len > AL_WIRE_MAX_ENDPOINT_LEN) return AL_ERR_OUT_OF_RANGE;
+        al_reader_bytes(&reader, (al_u8 *)out->addrs[i].endpoint, len);
+        out->addrs[i].endpoint[len] = '\0';
+        out->addrs[i].listen_port = al_reader_u16(&reader);
+    }
+    AL_TRY(al_reader_finish(&reader));
     return AL_OK;
 }

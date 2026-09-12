@@ -163,6 +163,7 @@ al_status al_daemon_open(const al_daemon_config *config,
         p2p_config.protocol_version = AL_WIRE_PROTOCOL_VERSION;
         p2p_config.require_encryption =
             daemon->config.require_encrypted_transport;
+        p2p_config.require_identity = daemon->config.require_identity;
         {
             al_hash256 genesis_hash;
             al_genesis_hash(&daemon->genesis, &genesis_hash);
@@ -189,6 +190,11 @@ al_status al_daemon_open(const al_daemon_config *config,
                              daemon->config.p2p_host,
                              daemon->config.p2p_port);
         if (status != AL_OK) goto fail;
+        
+        /* Set the identity key for peer authentication. */
+        status = al_p2p_set_identity(&daemon->p2p, &daemon->proposer);
+        if (status != AL_OK) goto fail;
+        
         daemon->p2p_ready = AL_TRUE;
     }
     if (daemon->config.enable_rpc) {

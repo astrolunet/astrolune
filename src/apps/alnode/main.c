@@ -40,7 +40,8 @@ static void print_usage(const char *program) {
         "        [--validator <public-key-hex>]...\n"
         "        [--interval ms] [--round-timeout ms] [--empty]\n"
         "        [--no-p2p] [--no-rpc]\n"
-        "        [--allow-insecure-crypto] [--unsafe-rpc]\n"
+        "        [--allow-insecure-crypto] [--require-encryption]\n"
+        "        [--require-identity] [--unsafe-rpc]\n"
         "        [--rpc-token <bearer-token>]\n"
         "        [--proposer-seed <64-hex>] [--proposer-passphrase <passphrase>]\n"
         "        [--log-level trace|debug|info|warn|error|silent]\n"
@@ -183,6 +184,10 @@ int main(int argc, char **argv) {
                 options.enable_rpc = AL_FALSE;
             } else if (strcmp(flag, "--allow-insecure-crypto") == 0) {
                 options.allow_insecure_crypto = AL_TRUE;
+            } else if (strcmp(flag, "--require-encryption") == 0) {
+                options.require_encrypted_transport = AL_TRUE;
+            } else if (strcmp(flag, "--require-identity") == 0) {
+                options.require_identity = AL_TRUE;
             } else if (strcmp(flag, "--unsafe-rpc") == 0) {
                 options.enable_unsafe_rpc = AL_TRUE;
             } else if (strcmp(flag, "--rpc-token") == 0) {

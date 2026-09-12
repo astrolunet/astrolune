@@ -64,6 +64,7 @@ typedef struct al_p2p_peer {
     al_hash256 head;
     al_height  height;
     al_u16     listen_port;
+    al_pubkey  identity;  /* Ed25519 public key for peer authentication */
 
     /* Transport encryption state (populated after KEY_EXCHANGE). */
     al_bool    encryption_enabled;
@@ -136,6 +137,7 @@ typedef struct al_p2p_config {
     al_u32     ping_interval_ms;
     al_u32     idle_timeout_ms;
     al_bool    require_encryption; /* require AEAD transport encryption    */
+    al_bool    require_identity;   /* require peer identity binding       */
 } al_p2p_config;
 
 typedef struct al_p2p {
@@ -149,6 +151,11 @@ typedef struct al_p2p {
     /* Local ephemeral keypair for transport encryption. Generated once at
      * startup; exchanged with peers during KEY_EXCHANGE handshake. */
     al_kx_keypair   local_kx;
+
+    /* Local Ed25519 identity keypair for peer authentication.
+     * The secret key signs the ephemeral X25519 key during KEY_EXCHANGE.
+     * Peers verify the signature to bind transport keys to identities. */
+    al_keypair      identity;
 
     al_hash256 seen_transactions[AL_P2P_DEDUP_RING];
     al_size    seen_transaction_next;
@@ -172,6 +179,15 @@ AL_NODISCARD al_status al_p2p_init(al_p2p *network, const al_p2p_config *config,
                                    const char *listen_host, al_u16 listen_port);
 void al_p2p_close(al_p2p *network);
 
+/*
+ * Set the node's Ed25519 identity keypair for peer authentication.
+ * Must be called after al_p2p_init() and before any connections are made.
+ * The public key is included in signed KEY_EXCHANGE messages.
+ * The secret key signs the ephemeral X25519 key to bind transport to identity.
+ */
+AL_NODISCARD al_status al_p2p_set_identity(al_p2p *network,
+                                           const al_keypair *identity);
+
 /* Begin an outbound connection. Completion happens inside poll(). */
 AL_NODISCARD al_status al_p2p_dial(al_p2p *network, const char *host,
                                    al_u16 port);
@@ -190,6 +206,13 @@ AL_NODISCARD al_size al_p2p_relay_consensus(
     const al_p2p_peer *origin);
 
 AL_NODISCARD al_size al_p2p_ready_peers(const al_p2p *network);
+
+/*
+ * Broadcast known peer addresses to a random subset of peers.
+ * Call periodically (e.g., every 60 seconds) from the daemon's event loop
+ * to enable peer discovery. Requires require_identity to be set.
+ */
+void al_p2p_broadcast_peers(al_p2p *network);
 
 AL_EXTERN_C_END
 

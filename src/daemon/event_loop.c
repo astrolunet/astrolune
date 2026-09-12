@@ -50,6 +50,7 @@ al_bool al_daemon_run(al_daemon *daemon) {
     daemon->next_bootstrap_ms = now_ms + 5000u;
     daemon->round_deadline_ms =
         now_ms + (al_u64)daemon->config.round_timeout_ms;
+    al_u64 next_pex_ms = now_ms + 60000u; /* PEX broadcast every 60 seconds */
     daemon_dial_bootstraps(daemon);
 
     while (!daemon->stop_requested &&
@@ -73,6 +74,12 @@ al_bool al_daemon_run(al_daemon *daemon) {
         if (now_ms >= daemon->next_bootstrap_ms) {
             daemon_dial_bootstraps(daemon);
             daemon->next_bootstrap_ms = now_ms + 5000u;
+        }
+        
+        /* PEX: Broadcast known peer addresses periodically. */
+        if (now_ms >= next_pex_ms && daemon->p2p_ready) {
+            al_p2p_broadcast_peers(&daemon->p2p);
+            next_pex_ms = now_ms + 60000u;
         }
 
         if (daemon->config.block_interval_ms != 0u &&

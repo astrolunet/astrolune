@@ -94,6 +94,8 @@ al_status al_daemon_config_load_memory(const char *text, al_size len,
         config_set_bool(p2p, "enabled", &config->enable_p2p);
         config_set_bool(p2p, "require_encryption",
                         &config->require_encrypted_transport);
+        config_set_bool(p2p, "require_identity",
+                        &config->require_identity);
     }
 
     /* [rpc] */

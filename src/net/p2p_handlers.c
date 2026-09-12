@@ -200,9 +200,10 @@ void send_hello(al_p2p *network, al_p2p_peer *peer) {
                        ? network->handlers.head_height(
                              network->handlers.userdata)
                        : 0u;
+    hello.identity = network->identity.pk;
     al_u8 payload[sizeof(hello.protocol_version) +
                   sizeof(hello.listen_port) + AL_HASH_SIZE + AL_HASH_SIZE +
-                  sizeof(al_u64)];
+                  sizeof(al_u64) + AL_PUBKEY_SIZE];
     al_writer writer;
     al_writer_init(&writer, payload, sizeof(payload));
     al_wire_hello_encode(&writer, &hello);
@@ -294,6 +295,7 @@ void handle_hello(al_p2p *network, al_p2p_peer *peer,
     peer->head = hello.head;
     peer->height = hello.height;
     peer->listen_port = hello.listen_port;
+    peer->identity = hello.identity;
 
     if (first_hello && peer->inbound) {
         send_hello(network, peer);
@@ -306,7 +308,19 @@ void handle_hello(al_p2p *network, al_p2p_peer *peer,
         al_wire_key_exchange kx;
         al_memcpy(kx.ephemeral_pk, network->local_kx.pk,
                   AL_KX_PUBLIC_KEY_SIZE);
-        al_u8 buf[sizeof(al_wire_header) + AL_KX_PUBLIC_KEY_SIZE];
+        
+        /* Sign the ephemeral key with our Ed25519 identity key.
+         * This binds the transport encryption key to our consensus identity. */
+        al_status sign_status = al_sign(&network->identity.sk,
+                                        al_bytes_make(kx.ephemeral_pk,
+                                                      AL_KX_PUBLIC_KEY_SIZE),
+                                        &kx.signature);
+        if (sign_status != AL_OK) {
+            peer_close(network, (al_size)(peer - network->peers));
+            return;
+        }
+        
+        al_u8 buf[sizeof(al_wire_header) + AL_KX_PUBLIC_KEY_SIZE + AL_SIGNATURE_SIZE];
         al_writer writer;
         al_writer_init(&writer, buf, sizeof(buf));
         al_wire_key_exchange_encode(&writer, &kx);
@@ -343,6 +357,19 @@ void handle_key_exchange(al_p2p *network, al_p2p_peer *peer,
     }
     if (!network->config.require_encryption) return;
 
+    /* Verify the signature binding the ephemeral key to the peer's identity.
+     * This prevents an attacker from intercepting the key exchange. */
+    if (network->config.require_identity) {
+        al_status verify_status = al_verify(
+            &peer->identity,
+            al_bytes_make(kx.ephemeral_pk, AL_KX_PUBLIC_KEY_SIZE),
+            &kx.signature);
+        if (verify_status != AL_OK) {
+            peer_close(network, (al_size)(peer - network->peers));
+            return;
+        }
+    }
+
     al_status estatus = al_kx_shared(&network->local_kx, kx.ephemeral_pk,
                                      peer->shared_key);
     if (estatus != AL_OK) {
@@ -352,6 +379,80 @@ void handle_key_exchange(al_p2p *network, al_p2p_peer *peer,
     peer->encryption_enabled = AL_TRUE;
     peer->tx_nonce_counter = 0u;
     peer->rx_nonce_counter = 0u;
+}
+
+/* PEX: Peer Exchange */
+
+void pex_send_known_peers(al_p2p *network, al_p2p_peer *peer) {
+    if (network->peer_count <= 1u) return;
+    
+    al_wire_addresses addrs;
+    addrs.count = 0u;
+    
+    /* Collect known peer addresses, excluding the target peer and
+     * only including peers in READY state. */
+    for (al_size i = 0u; i < network->peer_count && addrs.count < AL_WIRE_MAX_PEX_ADDRS; ++i) {
+        al_p2p_peer *p = &network->peers[i];
+        if (p == peer || p->state != AL_P2P_READY) continue;
+        if (p->listen_port == 0u) continue;
+        
+        /* Extract host from endpoint (before the colon). */
+        const char *colon = strrchr(p->endpoint, ':');
+        if (colon == NULL) continue;
+        al_size host_len = (al_size)(colon - p->endpoint);
+        if (host_len >= AL_WIRE_MAX_ENDPOINT_LEN) continue;
+        
+        memcpy(addrs.addrs[addrs.count].endpoint, p->endpoint, host_len);
+        addrs.addrs[addrs.count].endpoint[host_len] = '\0';
+        addrs.addrs[addrs.count].listen_port = p->listen_port;
+        addrs.count++;
+    }
+    
+    if (addrs.count == 0u) return;
+    
+    al_u8 buf[sizeof(al_wire_header) + 1u + AL_WIRE_MAX_PEX_ADDRS * (1u + AL_WIRE_MAX_ENDPOINT_LEN + 2u)];
+    al_writer writer;
+    al_writer_init(&writer, buf, sizeof(buf));
+    al_wire_addresses_encode(&writer, &addrs);
+    al_size len = al_writer_len(&writer);
+    if (al_writer_finish(&writer) == AL_OK) {
+        (void)peer_send_frame(peer, AL_WIRE_ADDRESSES, buf, len);
+    }
+}
+
+void handle_addresses(al_p2p *network, al_p2p_peer *peer,
+                      al_bytes payload) {
+    al_wire_addresses addrs;
+    if (al_wire_addresses_decode(payload, &addrs) != AL_OK) return;
+    
+    if (!network->config.require_identity) return;
+    
+    /* Attempt to connect to newly discovered peers. */
+    for (al_u8 i = 0u; i < addrs.count; ++i) {
+        if (network->peer_count >= network->config.max_peers) break;
+        
+        /* Skip if we're already connected to this endpoint. */
+        al_bool known = AL_FALSE;
+        for (al_size j = 0u; j < network->peer_count; ++j) {
+            if (strncmp(network->peers[j].endpoint, addrs.addrs[i].endpoint,
+                        AL_WIRE_MAX_ENDPOINT_LEN) == 0) {
+                known = AL_TRUE;
+                break;
+            }
+        }
+        if (known) continue;
+        
+        /* Parse host:port and dial. */
+        char host[64];
+        const char *colon = strrchr(addrs.addrs[i].endpoint, ':');
+        if (colon == NULL) continue;
+        al_size host_len = (al_size)(colon - addrs.addrs[i].endpoint);
+        if (host_len >= sizeof(host)) continue;
+        memcpy(host, addrs.addrs[i].endpoint, host_len);
+        host[host_len] = '\0';
+        
+        (void)al_p2p_dial(network, host, addrs.addrs[i].listen_port);
+    }
 }
 
 void dispatch_frame(al_p2p *network, al_p2p_peer *peer,
@@ -397,6 +498,9 @@ void dispatch_frame(al_p2p *network, al_p2p_peer *peer,
         break;
     case AL_WIRE_KEY_EXCHANGE:
         handle_key_exchange(network, peer, payload);
+        break;
+    case AL_WIRE_ADDRESSES:
+        handle_addresses(network, peer, payload);
         break;
     case AL_WIRE_FINALITY:
         (void)handle_finalized_block(network, peer, payload, AL_TRUE);

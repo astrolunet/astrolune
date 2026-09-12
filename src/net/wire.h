@@ -53,7 +53,8 @@ AL_EXTERN_C_BEGIN
 #define AL_WIRE_MAX_PAYLOAD_PONG        (8u)
 #define AL_WIRE_MAX_PAYLOAD_TX          AL_TX_MAX_SIZE
 #define AL_WIRE_MAX_PAYLOAD_GET_BLOCKS  (16u)
-#define AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE (32u + 1u)
+#define AL_WIRE_MAX_PAYLOAD_KEY_EXCHANGE (AL_KX_PUBLIC_KEY_SIZE + AL_SIGNATURE_SIZE)
+#define AL_WIRE_MAX_PAYLOAD_ADDRESSES    (10u * (1u + 64u + 2u)) /* max 10 addrs */
 
 typedef enum al_wire_type {
     AL_WIRE_HELLO     = 1,  /* handshake: identity, genesis, head          */
@@ -68,6 +69,7 @@ typedef enum al_wire_type {
     AL_WIRE_FINALITY  = 10, /* finalized block plus quorum certificate       */
     AL_WIRE_EVIDENCE  = 11, /* double-sign evidence gossip                   */
     AL_WIRE_KEY_EXCHANGE = 12, /* ephemeral X25519 key for transport encryption */
+    AL_WIRE_ADDRESSES = 13, /* peer address exchange (PEX)                  */
     AL_WIRE_TYPE_SENTINEL = 0x7fffffff
 } al_wire_type;
 
@@ -90,14 +92,17 @@ AL_NODISCARD al_status al_wire_header_decode(al_bytes data,
 
 /* --- HELLO -----------------------------------------------------------------
  * u32 protocol_version, u16 listen_port, hash256 genesis, hash256 head,
- * u64 height. The genesis hash is the chain binding: peers that disagree on it
- * are dropped before they can influence anything. */
+ * u64 height, pubkey32 identity. The genesis hash is the chain binding:
+ * peers that disagree on it are dropped before they can influence anything.
+ * The identity key is the Ed25519 public key used to sign KEY_EXCHANGE
+ * messages, binding transport encryption to consensus identity. */
 typedef struct al_wire_hello {
     al_u32     protocol_version;
     al_u16     listen_port;
     al_hash256 genesis;
     al_hash256 head;
     al_height  height;
+    al_pubkey  identity;  /* Ed25519 public key for peer authentication */
 } al_wire_hello;
 
 void al_wire_hello_encode(al_writer *writer, const al_wire_hello *hello);
@@ -177,17 +182,42 @@ AL_NODISCARD al_status al_wire_evidence_decode(al_bytes payload,
                                                 al_wire_evidence *out);
 
 /* KEY EXCHANGE */
-/* Ephemeral X25519 public key for transport encryption. Sent after HELLO.
- * Once both peers have exchanged keys, all subsequent frames are AEAD-encrypted
- * using a shared secret derived from the X25519 exchange. */
+/* Ephemeral X25519 public key for transport encryption, signed with the
+ * peer's Ed25519 identity key. Sent after HELLO.
+ * Once both peers have exchanged and verified keys, all subsequent frames
+ * are AEAD-encrypted using a shared secret derived from the X25519 exchange.
+ * The signature binds the transport key to the consensus identity. */
 typedef struct al_wire_key_exchange {
     al_u8 ephemeral_pk[AL_KX_PUBLIC_KEY_SIZE];
+    al_sig signature;  /* Ed25519 signature over ephemeral_pk */
 } al_wire_key_exchange;
 
 void al_wire_key_exchange_encode(al_writer *writer,
                                  const al_wire_key_exchange *kx);
 AL_NODISCARD al_status al_wire_key_exchange_decode(al_bytes payload,
-                                                    al_wire_key_exchange *out);
+                                                     al_wire_key_exchange *out);
+
+/* --- ADDRESSES (PEX) --------------------------------------------------------
+ * Peer address exchange: a list of known peer endpoints for peer discovery.
+ * Each entry: u8 endpoint_len, char[endpoint_len] endpoint, u16 listen_port.
+ * Total payload: u8 count, then count entries. */
+#define AL_WIRE_MAX_PEX_ADDRS 10u
+#define AL_WIRE_MAX_ENDPOINT_LEN 64u
+
+typedef struct al_wire_pex_addr {
+    char     endpoint[AL_WIRE_MAX_ENDPOINT_LEN];
+    al_u16   listen_port;
+} al_wire_pex_addr;
+
+typedef struct al_wire_addresses {
+    al_u8           count;
+    al_wire_pex_addr addrs[AL_WIRE_MAX_PEX_ADDRS];
+} al_wire_addresses;
+
+void al_wire_addresses_encode(al_writer *writer,
+                              const al_wire_addresses *addrs);
+AL_NODISCARD al_status al_wire_addresses_decode(al_bytes payload,
+                                                 al_wire_addresses *out);
 
 AL_EXTERN_C_END
 

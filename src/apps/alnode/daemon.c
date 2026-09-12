@@ -108,6 +108,8 @@ int command_run(const run_options *options) {
     config.rpc_port = options->rpc_port;
     config.enable_unsafe_rpc = options->enable_unsafe_rpc;
     config.allow_insecure_crypto = options->allow_insecure_crypto;
+    config.require_encrypted_transport = options->require_encrypted_transport;
+    config.require_identity = options->require_identity;
     config.rpc_token = options->rpc_token;
     for (al_size i = 0u; i < options->bootstrap_count; ++i) {
         config.bootstrap[i] = options->bootstrap[i];

@@ -34,6 +34,7 @@ enabled = true
 host    = "0.0.0.0"
 port    = 44001
 # require_encryption = false
+# require_identity = false    # require peer identity binding (PEX)
 
 # ---------------------------------------------------------------------------
 # [rpc]  — JSON-RPC server

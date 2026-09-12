@@ -81,6 +81,11 @@ typedef struct al_daemon_config {
      * do not encrypt are dropped. */
     al_bool require_encrypted_transport;
 
+    /* Require peer identity binding. When set, KEY_EXCHANGE messages must
+     * include an Ed25519 signature over the ephemeral key, binding transport
+     * encryption to the peer's consensus identity. Also enables PEX. */
+    al_bool require_identity;
+
     /* Optional external stop switch checked every tick (e.g. SIGINT flag). */
     const volatile int *stop_flag;
 } al_daemon_config;

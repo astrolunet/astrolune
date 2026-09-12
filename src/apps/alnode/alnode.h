@@ -138,6 +138,8 @@ typedef struct run_options {
     al_bool     enable_rpc;
     al_bool     enable_unsafe_rpc;
     al_bool     allow_insecure_crypto;
+    al_bool     require_encrypted_transport;
+    al_bool     require_identity;
     const char *rpc_token;
     const char *bootstrap[AL_DAEMON_MAX_BOOTSTRAP];
     al_size     bootstrap_count;
