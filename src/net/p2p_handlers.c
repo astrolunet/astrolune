@@ -305,31 +305,37 @@ void handle_hello(al_p2p *network, al_p2p_peer *peer,
     peer_canonical_endpoint(peer, hello.listen_port);
 
     if (first_hello) {
-        al_wire_key_exchange kx;
-        al_memcpy(kx.ephemeral_pk, network->local_kx.pk,
-                  AL_KX_PUBLIC_KEY_SIZE);
-        
-        /* Sign the ephemeral key with our Ed25519 identity key.
-         * This binds the transport encryption key to our consensus identity. */
-        al_status sign_status = al_sign(&network->identity.sk,
-                                        al_bytes_make(kx.ephemeral_pk,
-                                                      AL_KX_PUBLIC_KEY_SIZE),
-                                        &kx.signature);
-        if (sign_status != AL_OK) {
-            peer_close(network, (al_size)(peer - network->peers));
-            return;
+        /* Only send KEY_EXCHANGE if we have a valid identity key.
+         * When no identity is configured (default), skip signing to allow
+         * the handshake to complete without transport encryption. */
+        static const al_u8 zero_seckey[AL_SECKEY_SIZE] = {0};
+        if (memcmp(network->identity.sk.bytes, zero_seckey, AL_SECKEY_SIZE) != 0) {
+            al_wire_key_exchange kx;
+            al_memcpy(kx.ephemeral_pk, network->local_kx.pk,
+                      AL_KX_PUBLIC_KEY_SIZE);
+            
+            /* Sign the ephemeral key with our Ed25519 identity key.
+             * This binds the transport encryption key to our consensus identity. */
+            al_status sign_status = al_sign(&network->identity.sk,
+                                            al_bytes_make(kx.ephemeral_pk,
+                                                          AL_KX_PUBLIC_KEY_SIZE),
+                                            &kx.signature);
+            if (sign_status != AL_OK) {
+                peer_close(network, (al_size)(peer - network->peers));
+                return;
+            }
+            
+            al_u8 buf[sizeof(al_wire_header) + AL_KX_PUBLIC_KEY_SIZE + AL_SIGNATURE_SIZE];
+            al_writer writer;
+            al_writer_init(&writer, buf, sizeof(buf));
+            al_wire_key_exchange_encode(&writer, &kx);
+            al_size kx_len = al_writer_len(&writer);
+            if (al_writer_finish(&writer) != AL_OK) {
+                peer_close(network, (al_size)(peer - network->peers));
+                return;
+            }
+            (void)peer_send_frame(peer, AL_WIRE_KEY_EXCHANGE, buf, kx_len);
         }
-        
-        al_u8 buf[sizeof(al_wire_header) + AL_KX_PUBLIC_KEY_SIZE + AL_SIGNATURE_SIZE];
-        al_writer writer;
-        al_writer_init(&writer, buf, sizeof(buf));
-        al_wire_key_exchange_encode(&writer, &kx);
-        al_size kx_len = al_writer_len(&writer);
-        if (al_writer_finish(&writer) != AL_OK) {
-            peer_close(network, (al_size)(peer - network->peers));
-            return;
-        }
-        (void)peer_send_frame(peer, AL_WIRE_KEY_EXCHANGE, buf, kx_len);
     }
 
     if (!first_hello || peer_drop_duplicate(network, &peer)) return;
