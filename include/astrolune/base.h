@@ -325,14 +325,30 @@ AL_PUBLIC AL_NODISCARD al_status al_fee_next_base_prices(
         if (al_try_ != AL_OK) return al_try_; \
     } while (0)
 
-/* Version */
+/*
+ * Version
+ * AL_VERSION_* is the library release version (semver).
+ * AL_ABI_VERSION_* tracks the public C ABI surface independently: it advances
+ * when functions are added, removed, or their signatures change.  A consumer
+ * compiled against ABI version X can link against a library built at the same
+ * or newer ABI version, but not an older one.  The manifest checker compares
+ * the two at build time so stale headers never silently produce a broken link.
+ */
 
 #define AL_VERSION_MAJOR 0
 #define AL_VERSION_MINOR 1
 #define AL_VERSION_PATCH 0
 
+#define AL_ABI_VERSION_MAJOR 0
+#define AL_ABI_VERSION_MINOR 1
+#define AL_ABI_VERSION_PATCH 0
+
 /* "0.1.0" - the same string the CLI prints for --version. */
 AL_PUBLIC const char *al_version_string(void);
+
+/* ABI version as a dotted string, e.g. "0.1.0".  Consumers can compare this
+ * at link time or run time to detect ABI mismatches. */
+AL_PUBLIC const char *al_abi_version_string(void);
 
 AL_EXTERN_C_END
 

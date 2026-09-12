@@ -93,6 +93,24 @@ bool report_duplicates(const char *label,
     return failed;
 }
 
+/* Extract the numeric value of a #define from source text. Returns true on
+ * success and stores the value in *out.  Only handles simple integer literals
+ * (no expressions, no ULL suffixes). */
+bool extract_define(const std::string &source, const char *name, int *out) {
+    const std::string needle = std::string("#define ") + name + " ";
+    const std::size_t pos = source.find(needle);
+    if (pos == std::string::npos) return false;
+    const std::size_t start = pos + needle.size();
+    const std::size_t end = source.find_first_of(" \t\n\r;", start);
+    const std::string token = source.substr(start, end - start);
+    try {
+        *out = std::stoi(token);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 } // namespace
 
 int main() {
@@ -102,6 +120,26 @@ int main() {
                                            "boundary_symbols.cpp");
     bool failed = report_duplicates("public headers", declarations) ||
                   report_duplicates("ABI manifest", manifest);
+
+    /* ABI version consistency: the version declared in base.h must be
+     * parseable and present.  boundary_symbols.cpp static_asserts the same
+     * constants at compile time (it includes base.h), so a mismatch between
+     * the two is a compile error, not a manifest-check error.  Here we
+     * verify that the constants exist and are well-formed, catching a rename
+     * or deletion that the static_asserts might not fire for (e.g. a skipped
+     * translation unit). */
+    {
+        const std::string base_src = read_file(root / "include" / "astrolune" /
+                                               "base.h");
+        int hdr_major = 0, hdr_minor = 0, hdr_patch = 0;
+        if (!extract_define(base_src, "AL_ABI_VERSION_MAJOR", &hdr_major) ||
+            !extract_define(base_src, "AL_ABI_VERSION_MINOR", &hdr_minor) ||
+            !extract_define(base_src, "AL_ABI_VERSION_PATCH", &hdr_patch)) {
+            std::cerr << "ABI: cannot parse AL_ABI_VERSION_* from base.h\n";
+            failed = true;
+        }
+    }
+
     for (const auto &[name, count] : declarations) {
         (void)count;
         if (!manifest.contains(name)) {

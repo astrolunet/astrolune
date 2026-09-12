@@ -69,3 +69,14 @@ const char *al_version_string(void) {
 #undef AL_STR
 #undef AL_STR_
 }
+
+const char *al_abi_version_string(void) {
+    /* Assembled from AL_ABI_VERSION_* so it stays in sync with the constants
+     * that boundary_symbols.cpp static_asserts against. */
+#define AL_STR_(x) #x
+#define AL_STR(x)  AL_STR_(x)
+    return AL_STR(AL_ABI_VERSION_MAJOR) "." AL_STR(AL_ABI_VERSION_MINOR) "." \
+           AL_STR(AL_ABI_VERSION_PATCH);
+#undef AL_STR
+#undef AL_STR_
+}

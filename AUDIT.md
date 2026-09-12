@@ -43,7 +43,20 @@ intentional and must remain visible.
 - on-chain validator registration with a one-block activation delay, while the
   genesis committee can still be supplied by static configuration;
 - PoTB arithmetic for TBS, TGW, NDM, COD, correlation, entropy and profile-change
-  metrics, plus Gini/HHI monitoring, slashing and appeal library APIs.
+  metrics, plus Gini/HHI monitoring, slashing and appeal library APIs;
+- correlation-group detection via union-find over pairwise scores (threshold 0.30),
+  populating cluster_size, inbound_from_cluster, and correlation_score on each
+  validator record;
+- group weight cap (default 3%) via al_potb_weight_effective() applying
+  effective = raw * min(1, max_share / group_share);
+- genesis bonus with linear dilution over 24 months (configurable);
+- proposed-block ring buffer (16 slots) keyed by (height, round) supporting
+  multiple unfinalized candidates across rounds;
+- differentiated slashing tiers: VOTE_MISS 0.97, SYSTEMATIC_MISS 0.90,
+  BAD_RESPONSE 0.95, SYSTEMATIC_BAD_RESPONSE 0.80, CHALLENGE_MISS 0.85,
+  DOUBLE_SIGN 0.10, REPEAT_DOUBLE_SIGN 0 (permanent ban);
+- transaction fee split: 60/25/15 (flat/weighted/bonded) for tips, mirroring
+  the block-reward split.
 
 ### Storage and recovery
 
@@ -80,6 +93,8 @@ Executed on Windows/MSVC from this source tree:
   truncation, finalised state survival, Trocto contract compilation, contract
   deployment, counter read/write, validator disconnect observation, quorum loss
   detection and mempool rollback;
+- ABI versioning: `al_abi_version_string()` exposed, `AL_ABI_VERSION_*` constants
+  added to the public header, manifest checker validates version consistency;
 - `cmake --workflow --preset asan` was not runnable locally because this Windows
   environment has no Clang C/C++ compiler. ASan/UBSan, GCC/Clang, libsodium and
   fuzz jobs remain configured in `.github/workflows/ci.yml` and require CI or a
@@ -99,7 +114,7 @@ proposal replacement when a competing block arrives from the rightful
 proposer. A fifth fix in `rpc.c` relays transactions via P2P after RPC
 submission.
 
-### 2. Cryptographic deployment boundary
+### 2. Cryptographic deployment boundary — addressed
 
 The default dependency-free backend is deliberately insecure: its signatures
 are forgeable. The optional libsodium build provides real Ed25519 signatures and
@@ -132,7 +147,7 @@ is also handled in the daemon's consensus path. There is no finalized on-chain
 governance policy for admission, withdrawal, rotation, observation authority
 or dispute resolution — this remains an intentional design boundary.
 
-### 5. PoTB remains a research model
+### 5. PoTB remains a research model — partially addressed
 
 The scoring formulas and anti-domination metrics are implemented and tested, but
 there is no formal proof that a validator or correlation group cannot dominate.
@@ -141,6 +156,10 @@ are not independently trusted oracle inputs. A patient, well-funded operator can
 spread identities, infrastructure and activity to reduce detected correlation.
 Parameter calibration and attack simulation on realistic validator
 distributions are still required.
+
+Implemented mitigations: correlation-group detection (union-find, threshold 0.30),
+group weight cap (3% default), differentiated slashing tiers, TBS anti-Sybil
+claim reformulated to acknowledge the log-sum-vs-sum-log gap explicitly.
 
 ### 6. Transport and service exposure
 
@@ -189,3 +208,5 @@ Before calling the implementation release-ready, require at minimum:
    comparison on the exact release revision.
 5. External review of PoTB assumptions, fork/partition behavior, key custody,
    peer authentication and production recovery procedures.
+6. ABI versioning policy: `AL_ABI_VERSION_*` constants and `al_abi_version_string()`
+   exposed; manifest checker validates version consistency at build time.

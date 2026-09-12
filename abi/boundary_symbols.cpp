@@ -45,6 +45,20 @@
 #include "astrolune/validator_set.h"
 #include "astrolune/vm.h"
 
+/*
+ * ABI version: must match AL_ABI_VERSION_MAJOR/MINOR/PATCH in base.h.
+ * The manifest checker compares these constants against the header values at
+ * build time.  Bump when the public surface changes (functions added, removed
+ * or re-typed).  Semantic versioning applies: major for breaking changes
+ * (removals, signature changes), minor for additive-only changes.
+ */
+static_assert(AL_ABI_VERSION_MAJOR == 0,
+              "ABI: update boundary version when the public surface changes");
+static_assert(AL_ABI_VERSION_MINOR == 1,
+              "ABI: update boundary version when the public surface changes");
+static_assert(AL_ABI_VERSION_PATCH == 0,
+              "ABI: update boundary version when the public surface changes");
+
 /* reinterpret_cast rather than a C cast: the tooling builds with
  * -Wold-style-cast, and under the ci and asan presets warnings are errors. */
 #define AL_ABI_SYM(f) reinterpret_cast<al_abi_fn>(&f)
@@ -54,7 +68,7 @@
  * before it ever produces a relocation - which would quietly turn this file into
  * a no-op that always passes. */
 extern const al_abi_fn al_abi_symbols[] = {
-    /* base.h - 8 */
+    /* base.h - 9 */
     AL_ABI_SYM(al_status_str),
     AL_ABI_SYM(al_ok),
     AL_ABI_SYM(al_resources_zero),
@@ -63,6 +77,7 @@ extern const al_abi_fn al_abi_symbols[] = {
     AL_ABI_SYM(al_resources_fee),
     AL_ABI_SYM(al_fee_next_base_prices),
     AL_ABI_SYM(al_version_string),
+    AL_ABI_SYM(al_abi_version_string),
 
     /* bytes.h - 37 */
     AL_ABI_SYM(al_bytes_make),
@@ -341,8 +356,8 @@ extern const al_abi_fn al_abi_symbols[] = {
 extern const std::size_t al_abi_symbol_count =
     sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]);
 
-/* 8 + 39 + 12 + 20 + 25 + 28 + 39 + 6 + 7 + 8 + 13 + 32 + 15 + 9. Catches an entry lost to a
+/* 9 + 39 + 12 + 20 + 25 + 28 + 39 + 6 + 7 + 8 + 13 + 32 + 15 + 9. Catches an entry lost to a
  * bad merge; does not catch a function added to a header and never listed. */
-static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 255u,
-              "ABI: the public surface is 255 functions (detect_clusters added) - "
+static_assert(sizeof(al_abi_symbols) / sizeof(al_abi_symbols[0]) == 256u,
+              "ABI: the public surface is 256 functions (abi_version_string added) - "
               "update the table and this count together, or say why the surface changed");
