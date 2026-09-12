@@ -7,3 +7,6 @@
 [submodule "contracts"]
 	path = contracts
 	url = https://github.com/astrolunet/contracts.git
+[submodule "tools/cli"]
+	path = tools/cli
+	url = https://github.com/astrolunet/cli.git

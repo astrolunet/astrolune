@@ -119,6 +119,7 @@ bind.
 - `include/astrolune/`: public C ABI and deterministic core types
 - `src/`: VM, state, transactions, blocks, node, storage, networking and RPC
 - `tools/trocto/`: Trocto/Regol contract compiler (git submodule → [astrolunet/trocto](https://github.com/astrolunet/trocto))
+- `tools/cli/`: Astrolune CLI (`al` — git submodule → [astrolunet/cli](https://github.com/astrolunet/cli))
 - `examples/`: sample Trocto contracts (counter, token, math)
 - `tests/` and `fuzz/`: unit, integration and decoder coverage
 
@@ -127,6 +128,8 @@ bind.
 | Repository | Description |
 |---|---|
 | [`tools/trocto`](https://github.com/astrolunet/trocto) | Contract language compiler (Trocto/Regol → ALVM) |
+| [`tools/cli`](https://github.com/astrolunet/cli) | Command-line interface (`al` — node, keys, wallet, deploy) |
+| [`contracts`](https://github.com/astrolunet/contracts) | Reusable Trocto smart contracts (token, NFT, multisig, staking) |
 
 Clone with submodules:
 
