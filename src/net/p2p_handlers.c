@@ -422,6 +422,7 @@ void pex_send_known_peers(al_p2p *network, al_p2p_peer *peer) {
 
 void handle_addresses(al_p2p *network, al_p2p_peer *peer,
                       al_bytes payload) {
+    AL_UNUSED(peer);
     al_wire_addresses addrs;
     if (al_wire_addresses_decode(payload, &addrs) != AL_OK) return;
     
@@ -451,7 +452,8 @@ void handle_addresses(al_p2p *network, al_p2p_peer *peer,
         memcpy(host, addrs.addrs[i].endpoint, host_len);
         host[host_len] = '\0';
         
-        (void)al_p2p_dial(network, host, addrs.addrs[i].listen_port);
+        al_status dial_status = al_p2p_dial(network, host, addrs.addrs[i].listen_port);
+        AL_UNUSED(dial_status);
     }
 }
 
