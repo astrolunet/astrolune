@@ -1,3 +1,6 @@
 [submodule "tools/trocto"]
 	path = tools/trocto
 	url = https://github.com/astrolunet/trocto.git
+[submodule "docs"]
+	path = docs
+	url = https://github.com/astrolunet/astrolune-docs.git
