@@ -370,6 +370,7 @@ al_bool daemon_on_consensus(void *userdata, al_wire_type type,
     case AL_WIRE_EVIDENCE:
         return daemon_on_evidence(daemon, encoded);
     case AL_WIRE_KEY_EXCHANGE:
+    case AL_WIRE_ADDRESSES:
         return AL_FALSE;
     case AL_WIRE_HELLO:
     case AL_WIRE_PING:
