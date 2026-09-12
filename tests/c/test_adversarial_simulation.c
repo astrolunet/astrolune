@@ -57,25 +57,6 @@ static al_potb_record sim_honest(al_u32 id, al_u32 uptime, al_u32 day) {
     return r;
 }
 
-/* Build a Sybil-farm node: short uptime, all attestations from within the
- * cluster, same ASN, low TDI. */
-static al_potb_record sim_sybil(al_u32 id, al_u32 farm_asn,
-                                al_u32 cluster_size, al_u32 day) {
-    al_pubkey      pk = sim_key(id);
-    al_potb_record r  = al_potb_record_init(&pk);
-    r.uptime_days          = 14u;            /* spun up two weeks ago */
-    r.last_active_day      = day;
-    r.first_seen_day       = day - 14u;
-    r.inbound_attestations = 50u;
-    r.inbound_from_cluster = 50u;            /* all from within the farm */
-    r.cluster_size         = cluster_size;
-    r.tdi                  = FX(1, 20);      /* very low temporal dispersion */
-    r.asn                  = farm_asn;
-    r.asn_peer_count       = cluster_size;
-    r.challenges_issued    = 0u;
-    return r;
-}
-
 /* Default network stats: neutral medians, zero total weight. */
 static al_potb_network_stats sim_net_default(void) {
     al_potb_network_stats net;
